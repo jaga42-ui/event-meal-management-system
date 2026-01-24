@@ -57,6 +57,24 @@
             pointer-events: none;
         }
 
+        /* === SPOTLIGHT SEARCH ANIMATION === */
+        .spotlight-overlay { 
+            opacity: 0; 
+            pointer-events: none; 
+            transition: opacity 0.3s ease; 
+            backdrop-filter: blur(8px);
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .spotlight-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .spotlight-box {
+            transform: scale(0.95) translateY(-20px);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .spotlight-overlay.active .spotlight-box {
+            transform: scale(1) translateY(0);
+        }
+
         @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
         .splash-exit { animation: fadeOut 0.8s ease-in forwards; }
 
@@ -73,10 +91,6 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
-
-        /* === SEARCH TRANSITION === */
-        .search-enter { transform: translateY(0) !important; opacity: 1 !important; pointer-events: auto !important; }
-        .header-exit { transform: translateY(-10px); opacity: 0; pointer-events: none; }
     </style>
 </head>
 
@@ -102,6 +116,28 @@
             <i class="ph-fill ph-wifi-slash"></i>
             <span class="text-xs font-bold uppercase tracking-wider"><span id="queueCount">0</span> Pending Syncs</span>
         </div>
+    </div>
+
+    <div id="spotlightOverlay" class="fixed inset-0 z-[150] spotlight-overlay flex flex-col items-center pt-24 px-6">
+        <div class="spotlight-box w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden relative z-[160]">
+            <div class="flex items-center p-4 border-b border-slate-100">
+                <i class="ph-bold ph-magnifying-glass text-2xl text-slate-400 ml-2"></i>
+                <input id="searchInput" oninput="handleSearch(this.value)" type="text" 
+                    placeholder="Enter Student ID..." 
+                    class="flex-1 text-lg font-bold text-slate-800 placeholder:text-slate-300 border-none focus:ring-0 bg-transparent h-12 ml-2">
+                <button onclick="closeSearch()" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                    <span class="text-xs font-bold">ESC</span>
+                </button>
+            </div>
+            
+            <div id="searchResults" class="max-h-80 overflow-y-auto custom-scrollbar bg-slate-50/50">
+                <div class="p-8 text-center text-slate-400 flex flex-col items-center">
+                    <i class="ph-duotone ph-identification-card text-4xl mb-2 opacity-50"></i>
+                    <p class="text-xs font-bold uppercase tracking-widest">Type Exact ID to Search</p>
+                </div>
+            </div>
+        </div>
+        <div class="absolute inset-0 z-[140]" onclick="closeSearch()"></div>
     </div>
 
     <div id="authScreen" class="absolute inset-0 z-50 flex items-center justify-center p-6 transition-opacity duration-500">
@@ -158,19 +194,6 @@
                     </button>
                 </div>
             </div>
-
-            <div id="searchBar" class="absolute inset-x-6 top-6 glass rounded-[1.2rem] p-1 flex items-center shadow-2xl transform translate-y-[-20px] opacity-0 pointer-events-none transition-all duration-300 z-50">
-                <div class="w-10 h-10 flex items-center justify-center text-slate-400">
-                    <i class="ph-bold ph-magnifying-glass text-lg"></i>
-                </div>
-                <input id="searchInput" oninput="handleSearch(this.value)" type="text" placeholder="Type Student ID..." class="flex-1 bg-transparent border-none focus:ring-0 text-slate-800 font-bold placeholder:text-slate-400 h-full text-sm">
-                <button onclick="closeSearch()" class="w-9 h-9 rounded-xl bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 flex items-center justify-center mr-1 transition-colors">
-                    <i class="ph-bold ph-x"></i>
-                </button>
-            </div>
-            
-            <div id="searchResults" class="absolute top-20 left-6 right-6 glass rounded-2xl shadow-2xl p-2 hidden flex-col gap-1 max-h-60 overflow-y-auto custom-scrollbar z-[60] mt-2">
-                </div>
         </header>
 
         <div class="px-6 mt-4 anim-enter delay-100 relative z-30 space-y-3">
@@ -420,20 +443,20 @@
         }
     }
 
-    /* === 5. SEARCH LOGIC (REFINED) === */
+    /* === 5. SEARCH LOGIC (SPOTLIGHT MODAL) === */
     function openSearch() {
-        document.getElementById('searchBar').classList.add('search-enter');
-        document.getElementById('headerContent').classList.add('header-exit');
+        document.getElementById('spotlightOverlay').classList.add('active');
         document.getElementById('searchInput').focus();
     }
 
     function closeSearch() {
-        document.getElementById('searchBar').classList.remove('search-enter');
-        document.getElementById('headerContent').classList.remove('header-exit');
+        document.getElementById('spotlightOverlay').classList.remove('active');
         document.getElementById('searchInput').value = "";
-        document.getElementById('searchResults').innerHTML = "";
-        document.getElementById('searchResults').classList.remove('flex');
-        document.getElementById('searchResults').classList.add('hidden');
+        document.getElementById('searchResults').innerHTML = `
+            <div class="p-8 text-center text-slate-400 flex flex-col items-center">
+                <i class="ph-duotone ph-identification-card text-4xl mb-2 opacity-50"></i>
+                <p class="text-xs font-bold uppercase tracking-widest">Type Exact ID to Search</p>
+            </div>`;
     }
 
     let searchDebounce;
@@ -441,19 +464,24 @@
         clearTimeout(searchDebounce);
         const resContainer = document.getElementById('searchResults');
         
-        if(!query || query.length < 3) {
-            resContainer.classList.add('hidden');
-            resContainer.classList.remove('flex');
+        // CLEAN QUERY: Uppercase and Remove Spaces for ID match
+        const cleanQuery = query.toUpperCase().trim();
+
+        if(cleanQuery.length < 2) {
+            resContainer.innerHTML = `
+                <div class="p-8 text-center text-slate-400 flex flex-col items-center">
+                    <i class="ph-duotone ph-identification-card text-4xl mb-2 opacity-50"></i>
+                    <p class="text-xs font-bold uppercase tracking-widest">Type Exact ID to Search</p>
+                </div>`;
             return;
         }
 
-        resContainer.classList.remove('hidden');
-        resContainer.classList.add('flex');
-        resContainer.innerHTML = `<div class="text-center p-2 text-slate-400"><i class="ph-bold ph-spinner animate-spin text-xl"></i></div>`;
+        resContainer.innerHTML = `<div class="p-8 text-center text-slate-400"><i class="ph-bold ph-spinner animate-spin text-2xl"></i></div>`;
 
         searchDebounce = setTimeout(async () => {
             try {
-                const docRef = db.collection('allowed_ids').doc(query.toUpperCase().trim());
+                // 1. Strict ID Match (Fastest & Best for Check-in)
+                const docRef = db.collection('allowed_ids').doc(cleanQuery);
                 const doc = await docRef.get();
 
                 resContainer.innerHTML = "";
@@ -461,22 +489,30 @@
                 if (doc.exists) {
                     const u = { id: doc.id, ...doc.data() };
                     resContainer.innerHTML = `
-                        <div onclick="manualServe('${u.id}')" class="p-3 bg-white hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-100 cursor-pointer flex justify-between items-center group transition-colors shadow-sm">
+                        <div onclick="manualServe('${u.id}')" class="p-4 border-b border-slate-100 hover:bg-blue-50 cursor-pointer flex justify-between items-center group transition-colors">
                             <div>
-                                <div class="text-xs font-bold text-slate-800">${u.name}</div>
-                                <div class="text-[10px] text-slate-500 font-mono">${u.id}</div>
+                                <div class="font-bold text-slate-800 text-lg">${u.name}</div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-xs font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-600">${u.id}</span>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${u.category || 'Guest'}</span>
+                                </div>
                             </div>
-                            <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 group-hover:bg-[#2A7B9B] group-hover:text-white flex items-center justify-center transition-colors">
-                                <i class="ph-bold ph-check"></i>
+                            <div class="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-300 group-hover:bg-[#2A7B9B] group-hover:text-white flex items-center justify-center transition-colors shadow-sm">
+                                <i class="ph-bold ph-check text-xl"></i>
                             </div>
                         </div>
                     `;
                 } else {
-                     resContainer.innerHTML = `<div class="text-center text-xs font-bold text-slate-400 py-2">ID not found</div>`;
+                     resContainer.innerHTML = `
+                        <div class="p-8 text-center text-slate-400 flex flex-col items-center">
+                            <i class="ph-duotone ph-warning-circle text-4xl mb-2 opacity-50 text-red-300"></i>
+                            <p class="text-xs font-bold uppercase tracking-widest text-red-400">ID "${cleanQuery}" Not Found</p>
+                            <p class="text-[10px] mt-2 max-w-[200px]">Ensure the ID matches exactly what was uploaded in the Excel sheet.</p>
+                        </div>`;
                 }
             } catch(e) {
                 console.error(e);
-                resContainer.innerHTML = `<div class="text-center text-xs font-bold text-red-400 py-2">Error</div>`;
+                resContainer.innerHTML = `<div class="text-center text-xs font-bold text-red-400 py-4">Connection Error</div>`;
             }
         }, 500); 
     }
@@ -588,7 +624,7 @@
 
         document.getElementById('startOverlay').classList.add('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.remove('hidden');
-        document.getElementById('scannerLaser').classList.remove('hidden'); // SHOW LASER
+        document.getElementById('scannerLaser').classList.remove('hidden'); 
         
         scanner = new Html5Qrcode("reader");
         try {
@@ -605,7 +641,7 @@
         if (wakeLock) { await wakeLock.release(); wakeLock = null; }
         document.getElementById('startOverlay').classList.remove('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.add('hidden');
-        document.getElementById('scannerLaser').classList.add('hidden'); // HIDE LASER
+        document.getElementById('scannerLaser').classList.add('hidden'); 
         document.getElementById('reader').innerHTML = "";
     }
 
@@ -616,7 +652,7 @@
         if(isProcessing) return;
         isProcessing = true; 
         if(scanner) scanner.pause();
-        document.getElementById('scannerLaser').classList.add('hidden'); // Hide laser on success
+        document.getElementById('scannerLaser').classList.add('hidden'); 
 
         try {
             const idDoc = await db.collection('allowed_ids').doc(id).get();
@@ -726,7 +762,7 @@
         isProcessing = false; 
         if(scanner && !isGlobalLocked) {
              scanner.resume();
-             document.getElementById('scannerLaser').classList.remove('hidden'); // Resume laser
+             document.getElementById('scannerLaser').classList.remove('hidden'); 
         }
     }
 
