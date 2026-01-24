@@ -12,831 +12,423 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
         body { font-family: 'Outfit', sans-serif; overflow: hidden; }
-
-        /* === GRADIENT THEME === */
-        .custom-bg {
-            background: #2A7B9B;
-            background: linear-gradient(133deg, rgba(42, 123, 155, 1) 0%, rgba(87, 199, 133, 1) 50%, rgba(36, 128, 209, 1) 100%);
-        }
-
-        /* === ANIMATIONS === */
-        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
-        .anim-float { animation: float 6s ease-in-out infinite; }
-
-        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        .anim-enter { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
-        
-        @keyframes popIn { 
-            0% { transform: scale(0.95); opacity: 0; } 
-            100% { transform: scale(1); opacity: 1; } 
-        }
-        .result-anim { animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-        @keyframes scan { 0% { top: 0%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
-        .scan-laser { position: absolute; left: 0; right: 0; height: 3px; background: #57C785; box-shadow: 0 0 15px #57C785; animation: scan 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-
-        @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
-        .splash-exit { animation: fadeOut 0.8s ease-in forwards; }
-
-        @keyframes menuSlide { from { opacity: 0; transform: translateY(-10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .menu-anim { animation: menuSlide 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-
-        /* === GLASS UI === */
+        .custom-bg { background: linear-gradient(133deg, #2A7B9B 0%, #57C785 50%, #2480D1 100%); }
         .glass { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); }
         .glass-dark { background: rgba(15, 17, 42, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        
-        /* === UTILS === */
-        #reader__scan_region { display: none !important; }
-        #reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; border-radius: 40px !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
+        
+        /* Animation Classes */
+        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .anim-pop { animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .anim-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
 </head>
 
-<body class="h-screen flex flex-col custom-bg text-slate-800 selection:bg-teal-500 selection:text-white" onclick="closeDropdown(event)">
+<body class="h-screen flex flex-col custom-bg text-slate-800 selection:bg-teal-500 selection:text-white">
 
-    <div id="splash" class="fixed inset-0 z-[200] flex flex-col items-center justify-center custom-bg text-white">
-        <div class="relative w-24 h-24 flex items-center justify-center mb-6">
-            <div class="relative w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl anim-float">
-                <i class="ph-bold ph-qr-code text-4xl text-[#2A7B9B]"></i>
-            </div>
-        </div>
-        <h1 class="text-3xl font-extrabold tracking-tight">MealPass</h1>
-        <p class="text-teal-100 text-sm mt-2 font-medium tracking-widest uppercase">Event Edition 2026</p>
-    </div>
-
-    <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-3 px-6 py-3 rounded-full bg-slate-900/90 backdrop-blur-md text-white shadow-2xl translate-y-[-150px] transition-all duration-500 w-max max-w-[90%]">
-        <div id="toastDot" class="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80] shrink-0"></div>
-        <span id="toastMsg" class="text-sm font-bold truncate">Ready</span>
-    </div>
-    
-    <div id="offlineBadge" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[240] hidden transition-all">
-        <div class="bg-amber-100 border border-amber-200 shadow-xl text-amber-800 px-4 py-2 rounded-full flex items-center gap-3 animate-pulse">
-            <i class="ph-fill ph-wifi-slash"></i>
-            <span class="text-xs font-bold uppercase tracking-wider"><span id="queueCount">0</span> Pending Syncs</span>
+    <div id="authScreen" class="absolute inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-xl">
+        <div class="w-full max-w-sm bg-white/90 p-8 rounded-[2.5rem] shadow-2xl text-center anim-pop">
+            <div class="w-20 h-20 mx-auto bg-slate-100 rounded-3xl flex items-center justify-center mb-6 text-[#2A7B9B]"><i class="ph-duotone ph-qr-code text-4xl"></i></div>
+            <h1 class="text-3xl font-extrabold mb-1">MealPass</h1>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8">UTSAH 2026 Admin</p>
+            <input id="loginEmail" type="email" class="w-full bg-slate-100 p-4 rounded-xl font-bold text-slate-700 mb-3 outline-none focus:ring-2 focus:ring-[#2A7B9B]" placeholder="admin@utsah.com">
+            <input id="loginPassword" type="password" class="w-full bg-slate-100 p-4 rounded-xl font-bold text-slate-700 mb-6 outline-none focus:ring-2 focus:ring-[#2A7B9B]" placeholder="••••••">
+            <button onclick="handleAuth()" class="w-full py-4 bg-slate-900 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-transform">Authenticate</button>
         </div>
     </div>
 
-    <div id="authScreen" class="absolute inset-0 z-50 flex items-center justify-center p-6 transition-opacity duration-500">
-        <div class="w-full max-w-sm anim-enter relative z-10">
-            <div class="text-center mb-10">
-                <div class="w-24 h-24 mx-auto bg-white/90 backdrop-blur-xl rounded-[2rem] flex items-center justify-center shadow-2xl mb-6 anim-float">
-                    <i class="ph-duotone ph-shield-check text-5xl text-[#2480D1]"></i>
-                </div>
-                <h1 class="text-4xl font-extrabold text-white drop-shadow-md">Welcome</h1>
-                <p id="authSub" class="text-teal-100 font-medium mt-2">Sign in to access the terminal</p>
-            </div>
-
-            <div class="glass p-8 rounded-[2.5rem] shadow-2xl space-y-5">
-                <div class="space-y-2">
-                    <label class="text-xs font-bold text-slate-500 uppercase ml-3">Email Access</label>
-                    <input id="loginEmail" type="email" class="w-full bg-white/50 border border-white rounded-2xl py-4 px-5 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2A7B9B] transition-all" placeholder="admin@utsah.com">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-xs font-bold text-slate-500 uppercase ml-3">Security Key</label>
-                    <input id="loginPassword" type="password" class="w-full bg-white/50 border border-white rounded-2xl py-4 px-5 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2A7B9B] transition-all" placeholder="••••••••">
-                </div>
-                <button onclick="handleAuth()" id="authBtn" class="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                    <span>Authenticate</span> <i class="ph-bold ph-arrow-right"></i>
-                </button>
-                <div class="pt-2 text-center">
-                    <button onclick="toggleAuth()" id="authSwitch" class="text-xs font-bold text-[#2480D1] hover:text-[#2A7B9B] uppercase tracking-widest transition-colors">
-                        Create New Account
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="dashboard" class="hidden relative z-10 flex flex-col h-full w-full max-w-md mx-auto">
+    <div id="dashboard" class="hidden flex flex-col h-full w-full max-w-md mx-auto relative">
         
-        <header class="flex justify-between items-center p-6 pb-2 anim-enter">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-white/90 backdrop-blur rounded-2xl flex items-center justify-center text-[#2A7B9B] shadow-lg">
-                    <i class="ph-duotone ph-bowl-food text-2xl"></i>
-                </div>
-                <div class="text-white drop-shadow-md">
-                    <h2 class="font-extrabold text-xl leading-none">MealPass</h2>
-                    <div id="roleBadge" class="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">CONNECTING...</div>
-                </div>
+        <header class="flex justify-between items-center p-6 z-20">
+            <div class="text-white">
+                <h2 class="font-extrabold text-xl leading-none">MealPass</h2>
+                <div id="roleBadge" class="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">CONNECTING...</div>
             </div>
-            <button onclick="logout()" class="w-10 h-10 rounded-full bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-red-500/80 hover:border-red-500 transition-all flex items-center justify-center">
-                <i class="ph-bold ph-power"></i>
+            <button onclick="toggleSearch()" class="w-10 h-10 rounded-full bg-white/20 backdrop-blur border border-white/30 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                <i class="ph-bold ph-magnifying-glass text-lg"></i>
             </button>
         </header>
 
-        <div class="px-6 mt-6 anim-enter delay-100 relative z-30">
-            
-            <div id="adminMealControl" class="hidden relative group">
-                <button onclick="toggleDropdown(event)" id="dropdownTrigger" class="glass w-full p-2 rounded-3xl flex items-center hover:bg-white/80 transition-colors relative z-10">
-                    <div class="w-12 h-12 rounded-2xl bg-[#effaf6] flex items-center justify-center ml-1">
-                        <i id="mealIconDisplay" class="ph-fill ph-clock text-[#57C785] text-xl"></i>
-                    </div>
-                    <div class="ml-3 flex-1 text-left">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Global Setting</span>
-                        <span class="font-bold text-slate-800 text-lg" id="mealLabel">Syncing...</span>
-                    </div>
-                    <div class="w-10 h-10 flex items-center justify-center mr-1">
-                        <i id="dropdownArrow" class="ph-bold ph-caret-down text-slate-400 transition-transform duration-300"></i>
-                    </div>
-                </button>
-                <div id="dropdownMenu" class="hidden absolute top-full left-6 right-6 mt-2 glass rounded-[2rem] p-2 shadow-2xl origin-top z-50 flex-col gap-1">
-                    <button onclick="adminSetGlobalMeal('Breakfast', 'ph-coffee', 'text-orange-500')" class="w-full p-3 hover:bg-white/60 rounded-2xl flex items-center gap-4 text-left"><div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center"><i class="ph-fill ph-coffee text-orange-500 text-lg"></i></div><span class="font-bold text-slate-700">Breakfast</span></button>
-                    <button onclick="adminSetGlobalMeal('Lunch', 'ph-hamburger', 'text-red-500')" class="w-full p-3 hover:bg-white/60 rounded-2xl flex items-center gap-4 text-left"><div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><i class="ph-fill ph-hamburger text-red-500 text-lg"></i></div><span class="font-bold text-slate-700">Lunch</span></button>
-                    <button onclick="adminSetGlobalMeal('Snacks', 'ph-cookie', 'text-amber-500')" class="w-full p-3 hover:bg-white/60 rounded-2xl flex items-center gap-4 text-left"><div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center"><i class="ph-fill ph-cookie text-amber-500 text-lg"></i></div><span class="font-bold text-slate-700">Snacks</span></button>
-                    <button onclick="adminSetGlobalMeal('Dinner', 'ph-moon-stars', 'text-indigo-500')" class="w-full p-3 hover:bg-white/60 rounded-2xl flex items-center gap-4 text-left"><div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center"><i class="ph-fill ph-moon-stars text-indigo-500 text-lg"></i></div><span class="font-bold text-slate-700">Dinner</span></button>
-                </div>
+        <div id="searchOverlay" class="absolute top-0 left-0 right-0 p-4 z-30 hidden anim-slide-up bg-white/95 backdrop-blur-xl shadow-xl rounded-b-3xl">
+            <div class="flex items-center gap-3">
+                <i class="ph-bold ph-magnifying-glass text-slate-400 text-xl"></i>
+                <input id="searchInput" oninput="handleSearch(this.value)" type="text" placeholder="Search Name or ID..." class="bg-transparent w-full text-slate-800 font-bold text-lg outline-none placeholder:text-slate-300">
+                <button onclick="toggleSearch()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center"><i class="ph-bold ph-x"></i></button>
             </div>
-
-            <div id="volunteerMealDisplay" class="hidden glass p-2 rounded-3xl flex items-center opacity-90">
-                <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center ml-1">
-                    <i class="ph-fill ph-lock-key text-slate-400 text-xl"></i>
-                </div>
-                <div class="ml-3 flex-1 text-left">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Target Session</span>
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-slate-800 text-lg" id="lockedMealLabel">Syncing...</span>
-                        <span class="text-xs bg-slate-800 text-white px-2 py-0.5 rounded-full" id="volHeaderCount">0 Scanned</span>
-                    </div>
-                </div>
-            </div>
+            <div id="searchResults" class="mt-4 max-h-48 overflow-y-auto hidden flex-col gap-2"></div>
         </div>
 
-        <main class="flex-1 overflow-y-auto p-6 space-y-6 pb-24 no-scrollbar z-10">
-
-            <div id="volunteerPanel" class="hidden space-y-4 anim-enter delay-200">
-                
-                <div class="relative w-full aspect-square bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white/40 backdrop-blur-sm group">
-                    <div id="reader" class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    
-                    <div id="adminLockOverlay" class="absolute inset-0 bg-red-900/90 backdrop-blur-md z-[60] flex flex-col items-center justify-center hidden">
-                        <div class="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_30px_#ef4444] animate-pulse mb-4">
-                            <i class="ph-fill ph-lock-key text-4xl text-white"></i>
+        <main class="flex-1 overflow-y-auto p-6 space-y-4 pb-24 no-scrollbar z-10">
+            
+            <div id="adminControls" class="hidden grid grid-cols-2 gap-3">
+                 <button onclick="toggleMealDropdown()" class="col-span-2 glass p-3 rounded-2xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-500 flex items-center justify-center"><i class="ph-fill ph-clock text-xl"></i></div>
+                        <div class="text-left">
+                            <div class="text-[9px] uppercase font-bold text-slate-400">Current Session</div>
+                            <div id="mealLabel" class="text-lg font-extrabold leading-none text-slate-800">Syncing...</div>
                         </div>
-                        <h2 class="text-2xl font-bold text-white uppercase tracking-widest">Paused</h2>
                     </div>
+                    <i class="ph-bold ph-caret-down text-slate-400"></i>
+                </button>
+                <div id="mealDropdown" class="hidden col-span-2 glass p-2 rounded-2xl flex flex-col gap-1">
+                    <button onclick="setMeal('Breakfast')" class="p-3 hover:bg-white/50 rounded-xl font-bold text-left">Breakfast</button>
+                    <button onclick="setMeal('Lunch')" class="p-3 hover:bg-white/50 rounded-xl font-bold text-left">Lunch</button>
+                    <button onclick="setMeal('Snacks')" class="p-3 hover:bg-white/50 rounded-xl font-bold text-left">Snacks</button>
+                    <button onclick="setMeal('Dinner')" class="p-3 hover:bg-white/50 rounded-xl font-bold text-left">Dinner</button>
+                </div>
 
+                <div class="glass p-3 rounded-2xl">
+                    <div class="text-[9px] uppercase font-bold text-slate-400">Served Today</div>
+                    <div id="admSessionCount" class="text-2xl font-extrabold text-slate-800">0</div>
+                </div>
+                <div class="glass p-3 rounded-2xl">
+                    <div class="text-[9px] uppercase font-bold text-slate-400">Total Database</div>
+                    <div id="admDbCount" class="text-2xl font-extrabold text-slate-800">0</div>
+                </div>
+            </div>
+
+            <div id="scannerArea" class="hidden">
+                <div class="relative w-full aspect-square bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white/40">
+                    <div id="reader" class="w-full h-full opacity-80"></div>
                     <div id="startOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-md z-10">
-                        <button onclick="startScanner()" class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.4)] ring-anim hover:scale-105 transition-transform">
+                        <button onclick="startScanner()" class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.4)] animate-pulse">
                             <i class="ph-fill ph-camera text-3xl text-[#2480D1]"></i>
                         </button>
-                        <p class="mt-5 text-xs font-bold text-white uppercase tracking-widest">Tap to Activate</p>
+                        <p class="mt-4 text-xs font-bold text-white uppercase tracking-widest">Tap to Scan</p>
                     </div>
                 </div>
-                
-                <button id="stopBtn" onclick="stopScanner()" class="hidden w-full py-4 glass text-red-500 font-bold rounded-2xl shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2">
-                    <i class="ph-bold ph-stop-circle text-xl"></i><span>Stop Camera</span>
-                </button>
-
-                <div class="glass p-4 rounded-[2rem] space-y-3">
-                    <div class="flex items-center gap-3 border-b border-slate-200/50 pb-2">
-                        <i class="ph-bold ph-magnifying-glass text-slate-400 text-xl"></i>
-                        <input oninput="handleSearch(this.value)" id="searchInput" type="text" placeholder="Search Name or ID..." class="bg-transparent w-full text-slate-700 font-bold focus:outline-none placeholder:text-slate-400/70 placeholder:font-medium">
-                        <button onclick="clearSearch()" id="clearSearchBtn" class="hidden text-slate-400 hover:text-red-500"><i class="ph-fill ph-x-circle"></i></button>
-                    </div>
-                    
-                    <div id="searchResults" class="hidden flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
-                        </div>
-                </div>
+                <button onclick="stopScanner()" id="stopBtn" class="hidden w-full mt-4 py-3 bg-red-100 text-red-600 font-bold rounded-xl">Stop Camera</button>
             </div>
 
-            <div id="adminPanel" class="hidden space-y-4 anim-enter delay-200">
-                <div class="glass-dark p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
-                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-[#2480D1] rounded-full blur-[60px] opacity-50"></div>
-                    <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-[#57C785] rounded-full blur-[60px] opacity-50"></div>
-                    
-                    <h3 class="font-bold text-lg mb-5 relative z-10 flex items-center gap-2">
-                        <i class="ph-fill ph-chart-line-up"></i> Live Counters
-                    </h3>
-                    
-                    <div class="grid grid-cols-2 gap-4 relative z-10">
-                        <div class="bg-white/10 p-3 rounded-2xl border border-white/10">
-                            <div class="text-green-300 text-[10px] font-bold uppercase mb-1 tracking-wider">Current Session</div>
-                            <div class="flex items-baseline gap-1">
-                                <div class="text-2xl font-bold text-white" id="admSessionCount">0</div>
-                                <div class="text-[9px] opacity-60">Today</div>
-                            </div>
-                        </div>
-
-                        <div class="bg-white/10 p-3 rounded-2xl border border-white/10">
-                            <div class="text-blue-300 text-[10px] font-bold uppercase mb-1 tracking-wider">Total Served</div>
-                            <div class="flex items-baseline gap-1">
-                                <div class="text-2xl font-bold text-white" id="admTotalEventMeals">0</div>
-                                <div class="text-[9px] opacity-60">Cumulative</div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-span-2 bg-white/5 p-3 rounded-2xl border border-white/5 flex items-center justify-between px-4">
-                            <div class="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Registered People</div>
-                            <div class="text-2xl font-bold text-white" id="admDatabaseCount">0</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-4 gap-3 relative z-20">
-                    <button onclick="document.getElementById('excelInput').click()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square">
-                        <i class="ph-fill ph-microsoft-excel-logo text-green-600 text-2xl group-hover:scale-110 transition-transform"></i>
-                        <input type="file" id="excelInput" accept=".xlsx" class="hidden" onchange="uploadExcel(this)">
-                    </button>
-
-                    <div onclick="toggleExportMenu()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer">
-                        <i class="ph-fill ph-download-simple text-blue-600 text-2xl group-hover:scale-110 transition-transform"></i>
-                        
-                        <div id="exportMenu" onclick="event.stopPropagation()" class="hidden absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl p-2 z-[60] flex-col gap-1 border border-slate-100 cursor-default">
-                            <div onclick="downloadDailyReport()" class="p-3 hover:bg-blue-50 rounded-xl text-left cursor-pointer transition-colors group">
-                                <div class="text-xs font-extrabold text-slate-900 group-hover:text-blue-600">Today's Report</div>
-                            </div>
-                            <div onclick="downloadMasterReport()" class="p-3 hover:bg-green-50 rounded-xl text-left cursor-pointer border-t border-slate-100 transition-colors group">
-                                <div class="text-xs font-extrabold text-slate-900 group-hover:text-green-600">Master Report</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button onclick="toggleGlobalLock()" id="masterLockBtn" class="col-span-2 glass p-3 rounded-3xl flex flex-col items-center justify-center gap-1 transition-all group relative overflow-hidden">
-                        <div id="masterLockBg" class="absolute inset-0 bg-green-100/50 transition-colors duration-500"></div>
-                        <i id="masterLockIcon" class="ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all"></i>
-                        <span id="masterLockText" class="text-[10px] font-bold text-green-700 uppercase tracking-wider relative z-10">Scanners Active</span>
-                    </button>
-                </div>
-
-                <div class="glass rounded-[2.5rem] p-6 relative z-0">
-                    <div class="flex justify-between items-center mb-4 border-b border-slate-200/50 pb-3">
-                        <span class="font-bold text-slate-700">Team Management</span>
-                        <button onclick="loadUsers()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-[#2480D1] flex items-center justify-center transition-colors"><i class="ph-bold ph-arrows-clockwise"></i></button>
-                    </div>
-                    <div id="userList" class="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar"></div>
-                </div>
-            </div>
         </main>
+
+        <div id="offlineBadge" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-amber-100 border border-amber-200 text-amber-800 px-4 py-2 rounded-full items-center gap-2 shadow-xl z-50">
+            <i class="ph-fill ph-wifi-slash"></i>
+            <span class="text-xs font-bold uppercase"><span id="queueCount">0</span> Pending</span>
+        </div>
     </div>
 
-    <div id="resultModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
-        <div id="resultCard" class="bg-white w-80 rounded-[2.5rem] overflow-hidden shadow-2xl transform transition-all duration-300 scale-95 p-6 border-4">
+    <div id="registerModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-6">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl anim-pop">
+            <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mb-4"><i class="ph-bold ph-cardholder text-xl"></i></div>
+            <h3 class="text-xl font-extrabold text-slate-800">Assign Card?</h3>
+            <p class="text-xs text-slate-500 font-medium mb-4">This ID is not in the system. Assign it to a late arrival?</p>
+            
+            <div class="bg-slate-100 p-3 rounded-xl mb-4 font-mono text-xs font-bold text-center text-slate-500 border border-slate-200" id="regIdDisplay">ID: ---</div>
+            
+            <div class="space-y-3">
+                <input id="regName" type="text" placeholder="Full Name" class="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl font-bold outline-none">
+                <select id="regCat" class="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl font-bold outline-none text-slate-600">
+                    <option value="Participant">Participant</option>
+                    <option value="Team Manager">Team Manager</option>
+                    <option value="DSW">DSW (VIP)</option>
+                    <option value="Student Accompanist">Student Accompanist</option>
+                    <option value="Professional Accompanist">Prof. Accompanist (VIP)</option>
+                    <option value="Volunteer">Volunteer</option>
+                </select>
+            </div>
+
+            <div class="flex gap-2 mt-6">
+                <button onclick="document.getElementById('registerModal').classList.add('hidden'); if(scanner) scanner.resume();" class="flex-1 py-3 text-slate-400 font-bold">Cancel</button>
+                <button onclick="completeRegistration()" class="flex-1 py-3 bg-purple-600 text-white rounded-xl font-bold shadow-lg">Assign</button>
+            </div>
         </div>
+    </div>
+
+    <div id="resultModal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/60 backdrop-blur-md transition-opacity">
+        <div id="resultCard" class="bg-white w-80 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white transform transition-all p-6 text-center">
+            </div>
     </div>
 
 <script>
-    /* === 1. CONFIGURATION === */
-    const firebaseConfig = {
-        apiKey: "AIzaSyDlgdYJ9-3ELhEjLz8EQJQK18ghlWhR-jo",
-        authDomain: "orc-meal-tracker.firebaseapp.com",
-        projectId: "orc-meal-tracker"
-    };
-
-    /* === 2. INITIALIZATION === */
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    
+    /* === CONFIG & INIT === */
+    const firebaseConfig = { apiKey: "AIzaSyDlgdYJ9-3ELhEjLz8EQJQK18ghlWhR-jo", authDomain: "orc-meal-tracker.firebaseapp.com", projectId: "orc-meal-tracker" };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
-    db.enablePersistence().catch(err => console.warn("Persistence Error", err));
+    db.enablePersistence().catch(e => console.log("Persistence", e));
 
-    let currentMeal = "";
-    let isGlobalLocked = false;
+    let currentMeal = "Breakfast";
     let scanner = null;
-    let isScanning = false;
-    let isProcessing = false;
-    let isSignup = false;
-    let wakeLock = null;
-    let audioCtx = null;
-    
-    // OFFLINE & SEARCH GLOBALS
-    let localUserCache = []; 
-    let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
+    let localCache = [];
+    let offlineQueue = JSON.parse(localStorage.getItem('queue') || "[]");
+    let tempScanId = ""; // Holds ID for registration
 
-    setTimeout(() => { 
-        document.getElementById('splash').classList.add('splash-exit'); 
-        setTimeout(() => document.getElementById('splash').remove(), 800); 
-    }, 2000);
+    /* === UTILS === */
+    const getToday = () => new Date().toLocaleDateString('en-CA');
+    const speak = (txt) => { if('speechSynthesis' in window){ let u = new SpeechSynthesisUtterance(txt); u.rate=1.1; window.speechSynthesis.speak(u); }};
+    const toast = (msg) => { /* Simplified toast logic */ alert(msg); }; 
 
-    /* === 3. UTILITIES === */
-    function getTodayDate() {
-        return new Date().toLocaleDateString('en-CA');
-    }
-
-    function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-    }
-
-    /* === 4. AUTH & SYNC === */
-    auth.onAuthStateChanged(user => {
-        if(user) {
-            document.getElementById('authScreen').classList.add('opacity-0', 'pointer-events-none');
+    /* === AUTH === */
+    auth.onAuthStateChanged(u => {
+        if(u) {
+            document.getElementById('authScreen').classList.add('hidden');
             document.getElementById('dashboard').classList.remove('hidden');
-            initDashboard(user.uid);
-            
-            db.collection('settings').doc('global').onSnapshot(doc => {
-                if(doc.exists) { 
-                    const d = doc.data();
-                    updateLocalMealState(d.currentMeal); 
-                    updateGlobalLockState(d.scannerLocked || false);
-                } else if(document.getElementById('adminPanel').style.display === 'block') {
-                    db.collection('settings').doc('global').set({currentMeal: 'Breakfast', scannerLocked: false}, {merge:true});
-                }
-            });
-
-            db.collection('stats').doc('counts').onSnapshot(doc => {
-                if (doc.exists && currentMeal) {
-                    const data = doc.data();
-                    const sessionKey = `${currentMeal}_${getTodayDate()}`;
-                    document.getElementById('admSessionCount').innerText = data[sessionKey] || 0;
-                    document.getElementById('volHeaderCount').innerText = `${data[sessionKey] || 0} Scanned`;
-                    document.getElementById('admTotalEventMeals').innerText = data['total_scans_ever'] || 0;
-                }
-            });
-
+            initApp(u.uid);
         } else {
-            document.getElementById('authScreen').classList.remove('opacity-0', 'pointer-events-none');
-            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('authScreen').classList.remove('hidden');
         }
     });
 
-    async function initDashboard(uid) {
-        document.querySelectorAll('#adminPanel, #volunteerPanel, #adminMealControl, #volunteerMealDisplay').forEach(el => el.style.display = 'none');
-        
+    async function handleAuth() {
+        const e = document.getElementById('loginEmail').value;
+        const p = document.getElementById('loginPassword').value;
+        try { await auth.signInWithEmailAndPassword(e, p); } catch(err) { alert("Login Failed: " + err.message); }
+    }
+
+    async function initApp(uid) {
         const doc = await db.collection('users').doc(uid).get();
-        if(!doc.exists || doc.data().disabled) { auth.signOut(); return toast("Access Revoked", "error"); }
-        
-        const role = doc.data().role || 'pending';
+        const role = doc.exists ? doc.data().role : 'volunteer';
         document.getElementById('roleBadge').innerText = role.toUpperCase();
-
-        if(role === 'admin') {
-            document.getElementById('adminPanel').style.display = 'block';
-            document.getElementById('volunteerPanel').style.display = 'block';
-            document.getElementById('adminMealControl').style.display = 'block';
-            loadUsers();
-            cacheUsersForSearch();
-            db.collection('allowed_ids').onSnapshot(snap => {
-                document.getElementById('admDatabaseCount').innerText = snap.size;
-            });
-        } else if (role === 'volunteer') {
-            document.getElementById('volunteerPanel').style.display = 'block';
-            document.getElementById('volunteerMealDisplay').style.display = 'flex';
-            cacheUsersForSearch(); // Preload search data
-            updateOfflineUI(); // Check queue
-        }
-    }
-
-    /* === 5. OFFLINE & SEARCH LOGIC (NEW) === */
-    
-    async function cacheUsersForSearch() {
-        // Downloads minimal data for fallback search
-        try {
-            const snap = await db.collection('allowed_ids').get();
-            localUserCache = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        } catch(e) { console.log("Cache load failed", e); }
-    }
-
-    function handleSearch(query) {
-        const resContainer = document.getElementById('searchResults');
-        const clearBtn = document.getElementById('clearSearchBtn');
         
-        if(!query || query.length < 2) {
-            resContainer.classList.add('hidden');
-            clearBtn.classList.add('hidden');
+        document.getElementById('scannerArea').classList.remove('hidden');
+        
+        if(role === 'admin') {
+            document.getElementById('adminControls').classList.remove('hidden');
+            db.collection('settings').doc('global').onSnapshot(s => { if(s.exists) updateMealUI(s.data().currentMeal); });
+            db.collection('allowed_ids').onSnapshot(s => document.getElementById('admDbCount').innerText = s.size);
+        }
+
+        db.collection('stats').doc('counts').onSnapshot(s => {
+            if(s.exists) document.getElementById('admSessionCount').innerText = s.data()[`${currentMeal}_${getToday()}`] || 0;
+        });
+        
+        // Cache for search & offline
+        const snap = await db.collection('allowed_ids').get();
+        localCache = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        
+        updateQueueUI();
+    }
+
+    /* === CORE LOGIC === */
+    function updateMealUI(m) {
+        currentMeal = m;
+        document.getElementById('mealLabel').innerText = m;
+    }
+    
+    function setMeal(m) {
+        db.collection('settings').doc('global').set({currentMeal: m}, {merge:true});
+        document.getElementById('mealDropdown').classList.add('hidden');
+    }
+
+    function toggleMealDropdown() { document.getElementById('mealDropdown').classList.toggle('hidden'); }
+
+    /* === SCANNER === */
+    async function startScanner() {
+        if(scanner) return;
+        document.getElementById('startOverlay').classList.add('hidden');
+        document.getElementById('stopBtn').classList.remove('hidden');
+        scanner = new Html5Qrcode("reader");
+        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScan);
+    }
+
+    function stopScanner() {
+        if(scanner) { scanner.stop().then(() => scanner.clear()); scanner = null; }
+        document.getElementById('startOverlay').classList.remove('hidden');
+        document.getElementById('stopBtn').classList.add('hidden');
+    }
+
+    async function onScan(txt) {
+        const id = txt.trim().toUpperCase();
+        if(scanner) scanner.pause();
+
+        // 1. Search Local Cache First
+        let user = localCache.find(u => u.id === id);
+
+        // 2. If not found, try Network (if online)
+        if(!user && navigator.onLine) {
+            try {
+                const doc = await db.collection('allowed_ids').doc(id).get();
+                if(doc.exists) user = doc.data();
+            } catch(e) {}
+        }
+
+        // 3. UNKNOWN ID -> REGISTRATION FLOW
+        if(!user) {
+            // Trigger Registration Modal
+            tempScanId = id;
+            document.getElementById('regIdDisplay').innerText = `ID: ${id}`;
+            document.getElementById('registerModal').classList.remove('hidden');
             return;
         }
 
-        clearBtn.classList.remove('hidden');
-        resContainer.classList.remove('hidden');
-        resContainer.innerHTML = "";
+        // 4. CHECK MEAL STATUS
+        const recordKey = `${currentMeal}_${getToday()}`;
+        const ref = db.collection('meal_records').doc(id);
+        
+        try {
+            const doc = await ref.get();
+            if(doc.exists && doc.data().meals && doc.data().meals[recordKey]) {
+                showResult(false, user, "Already Served", doc.data().meals[recordKey].time);
+            } else {
+                // WRITE (Robust)
+                const payload = { id, meal: currentMeal, date: getToday(), time: new Date().toLocaleTimeString() };
+                if(navigator.onLine) {
+                    const batch = db.batch();
+                    batch.set(ref, { meals: { [recordKey]: payload } }, { merge: true });
+                    batch.set(db.collection('stats').doc('counts'), { [recordKey]: firebase.firestore.FieldValue.increment(1) }, { merge: true });
+                    batch.commit();
+                } else {
+                    offlineQueue.push(payload);
+                    localStorage.setItem('queue', JSON.stringify(offlineQueue));
+                    updateQueueUI();
+                }
+                showResult(true, user, "Authorized");
+            }
+        } catch(e) {
+            alert(e);
+            if(scanner) scanner.resume();
+        }
+    }
 
-        const q = query.toLowerCase();
-        const results = localUserCache.filter(u => 
-            (u.name && u.name.toLowerCase().includes(q)) || 
-            (u.id && u.id.toLowerCase().includes(q))
-        ).slice(0, 10);
+    /* === REGISTRATION LOGIC === */
+    async function completeRegistration() {
+        const name = document.getElementById('regName').value;
+        const cat = document.getElementById('regCat').value;
+        if(!name) return alert("Name required");
 
-        if(results.length === 0) {
-            resContainer.innerHTML = `<div class="text-center text-xs font-bold text-slate-400 py-2">No match found</div>`;
-            return;
+        const newUser = { name, category: cat, department: 'On-Spot', active: true };
+        
+        // Save to DB
+        await db.collection('allowed_ids').doc(tempScanId).set(newUser);
+        // Add to local cache instantly
+        localCache.push({ id: tempScanId, ...newUser });
+        
+        document.getElementById('registerModal').classList.add('hidden');
+        
+        // Auto-process the meal
+        onScan(tempScanId); 
+    }
+
+    /* === UI & THEMES === */
+    function showResult(success, user, title, timeStr = "") {
+        const modal = document.getElementById('resultModal');
+        const card = document.getElementById('resultCard');
+        
+        // Determine Theme based on Category
+        let theme = { bg: 'bg-green-500', text: 'text-green-600', icon: 'ph-check-circle', border: 'border-green-500' };
+        
+        if (!success) {
+            theme = { bg: 'bg-red-500', text: 'text-red-600', icon: 'ph-warning-circle', border: 'border-red-500' };
+            speak("Stop. Already Served.");
+        } else {
+            const cat = (user.category || "").toLowerCase();
+            if (cat.includes('dsw') || cat.includes('professional')) {
+                theme = { bg: 'bg-yellow-500', text: 'text-yellow-600', icon: 'ph-crown', border: 'border-yellow-500' }; // VIP Gold
+                speak("Welcome VIP.");
+            } else if (cat.includes('manager')) {
+                theme = { bg: 'bg-purple-500', text: 'text-purple-600', icon: 'ph-briefcase', border: 'border-purple-500' }; // Manager Purple
+                speak("Team Manager.");
+            } else if (cat.includes('volunteer')) {
+                theme = { bg: 'bg-blue-500', text: 'text-blue-600', icon: 'ph-hand-heart', border: 'border-blue-500' }; // Volunteer Blue
+                speak("Volunteer.");
+            } else {
+                speak("Access Granted.");
+            }
         }
 
-        results.forEach(u => {
-            resContainer.innerHTML += `
-                <div onclick="manualServe('${u.id}')" class="p-3 bg-white/50 hover:bg-white rounded-xl border border-transparent hover:border-slate-100 transition-all cursor-pointer flex justify-between items-center group">
+        card.className = `bg-white w-80 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 ${theme.border} transform transition-all p-0 text-center`;
+        
+        card.innerHTML = `
+            <div class="${theme.bg} p-6 flex justify-center items-center">
+                <i class="ph-fill ${theme.icon} text-5xl text-white"></i>
+            </div>
+            <div class="p-6">
+                <h2 class="text-2xl font-extrabold ${theme.text}">${title}</h2>
+                ${timeStr ? `<p class="text-xs font-bold text-slate-400 mt-1">Time: ${timeStr}</p>` : ''}
+                
+                <div class="my-4 border-t border-slate-100 pt-4">
+                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Name</p>
+                    <p class="text-xl font-bold text-slate-800 leading-tight">${user.name}</p>
+                </div>
+                
+                <div class="flex gap-2 justify-center">
+                    <span class="px-3 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-600 border border-slate-200">${user.category || 'Guest'}</span>
+                </div>
+
+                <button onclick="closeResult()" class="mt-6 w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg">Scan Next</button>
+            </div>
+        `;
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeResult() {
+        document.getElementById('resultModal').classList.add('hidden');
+        if(scanner) scanner.resume();
+    }
+
+    /* === SEARCH UI === */
+    function toggleSearch() {
+        const el = document.getElementById('searchOverlay');
+        el.classList.toggle('hidden');
+        if(!el.classList.contains('hidden')) document.getElementById('searchInput').focus();
+    }
+
+    function handleSearch(q) {
+        const div = document.getElementById('searchResults');
+        if(q.length < 2) { div.classList.add('hidden'); return; }
+        
+        div.innerHTML = "";
+        div.classList.remove('hidden');
+        div.classList.add('flex');
+
+        const matches = localCache.filter(u => u.name.toLowerCase().includes(q.toLowerCase()) || u.id.toLowerCase().includes(q.toLowerCase())).slice(0, 5);
+        
+        matches.forEach(u => {
+            div.innerHTML += `
+                <div onclick="manualProcess('${u.id}')" class="p-3 bg-slate-50 rounded-xl flex justify-between items-center cursor-pointer hover:bg-slate-100">
                     <div>
-                        <div class="text-xs font-bold text-slate-800">${u.name}</div>
-                        <div class="text-[10px] text-slate-500 font-mono">${u.id}</div>
+                        <div class="font-bold text-sm text-slate-800">${u.name}</div>
+                        <div class="text-[10px] text-slate-500">${u.category}</div>
                     </div>
-                    <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 group-hover:bg-[#2A7B9B] group-hover:text-white flex items-center justify-center transition-colors">
-                        <i class="ph-bold ph-check"></i>
-                    </div>
+                    <i class="ph-bold ph-arrow-right text-slate-400"></i>
                 </div>
             `;
         });
     }
 
-    function clearSearch() {
-        document.getElementById('searchInput').value = "";
-        handleSearch("");
+    function manualProcess(id) {
+        toggleSearch();
+        onScan(id);
     }
 
-    function manualServe(id) {
-        onScan(id); 
-        clearSearch();
-    }
-
-    /* === OFFLINE QUEUE MANAGER === */
-    window.addEventListener('online', processQueue);
-    setInterval(processQueue, 10000); 
-
-    async function robustWrite(id, person, ref, recordKey) {
-        const payload = { 
-            id: id,
-            timestamp: new Date().getTime(),
-            meal: currentMeal,
-            date: getTodayDate(),
-            personName: person.name 
-        };
-
-        if (navigator.onLine) {
-            try {
-                const batch = db.batch();
-                batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: payload.date } } }, { merge: true });
-                batch.set(db.collection('stats').doc('counts'), { [recordKey]: firebase.firestore.FieldValue.increment(1), 'total_scans_ever': firebase.firestore.FieldValue.increment(1) }, { merge: true });
-                await batch.commit();
-                return true; 
-            } catch (e) {
-                console.warn("Write failed, adding to queue", e);
-                addToQueue(payload);
-                return true; 
-            }
+    /* === OFFLINE SYNC === */
+    function updateQueueUI() {
+        const el = document.getElementById('offlineBadge');
+        if(offlineQueue.length > 0) {
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+            document.getElementById('queueCount').innerText = offlineQueue.length;
         } else {
-            addToQueue(payload);
-            return true; 
+            el.classList.add('hidden');
+            el.classList.remove('flex');
         }
     }
 
-    function addToQueue(data) {
-        offlineQueue.push(data);
-        localStorage.setItem('mealQueue', JSON.stringify(offlineQueue));
-        updateOfflineUI();
-        toast("Saved Offline", "info");
-    }
-
-    async function processQueue() {
-        if (!navigator.onLine || offlineQueue.length === 0) return;
-
-        const queueCopy = [...offlineQueue];
-        document.getElementById('queueCount').innerText = "Syncing...";
-        
-        const batch = db.batch();
-        
-        queueCopy.forEach(item => {
-            const ref = db.collection('meal_records').doc(item.id);
-            const recordKey = `${item.meal}_${item.date}`;
-            
-            batch.set(ref, { 
-                meals: { 
-                    [recordKey]: { 
-                        time: new Date(item.timestamp).toLocaleTimeString(), 
-                        date: item.date 
-                    } 
-                } 
-            }, { merge: true });
-            
-            batch.set(db.collection('stats').doc('counts'), { 
-                [recordKey]: firebase.firestore.FieldValue.increment(1), 
-                'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
-            }, { merge: true });
-        });
-
-        try {
-            await batch.commit();
-            offlineQueue = [];
-            localStorage.setItem('mealQueue', JSON.stringify(offlineQueue));
-            updateOfflineUI();
-            toast("Synced " + queueCopy.length + " records", "success");
-        } catch (e) {
-            console.error("Sync failed", e);
+    setInterval(() => {
+        if(navigator.onLine && offlineQueue.length > 0) {
+            const batch = db.batch();
+            const q = [...offlineQueue];
+            q.forEach(item => {
+                const k = `${item.meal}_${item.date}`;
+                batch.set(db.collection('meal_records').doc(item.id), { meals: { [k]: item } }, {merge:true});
+            });
+            batch.commit().then(() => {
+                offlineQueue = [];
+                localStorage.setItem('queue', "[]");
+                updateQueueUI();
+            });
         }
-    }
+    }, 5000);
 
-    function updateOfflineUI() {
-        const badge = document.getElementById('offlineBadge');
-        const count = document.getElementById('queueCount');
-        
-        if (offlineQueue.length > 0) {
-            badge.classList.remove('hidden');
-            badge.classList.add('flex');
-            count.innerText = offlineQueue.length;
-        } else {
-            badge.classList.add('hidden');
-            badge.classList.remove('flex');
-        }
-    }
-
-    /* === 6. SCANNER LOGIC === */
-    async function startScanner() {
-        if(scanner || isGlobalLocked) return;
-        initAudio();
-        try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
-
-        document.getElementById('startOverlay').classList.add('opacity-0', 'pointer-events-none');
-        document.getElementById('stopBtn').classList.remove('hidden');
-        
-        scanner = new Html5Qrcode("reader");
-        try {
-            await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScan);
-            isScanning = true;
-        } catch(e) { toast("Camera Error: " + e, "error"); stopScanner(); }
-    }
-
-    async function stopScanner() {
-        if(!scanner) return;
-        try { if(scanner.isScanning) await scanner.stop(); scanner.clear(); } catch(e) { console.log(e); }
-        scanner = null;
-        isScanning = false;
-        if (wakeLock) { await wakeLock.release(); wakeLock = null; }
-        document.getElementById('startOverlay').classList.remove('opacity-0', 'pointer-events-none');
-        document.getElementById('stopBtn').classList.add('hidden');
-        document.getElementById('reader').innerHTML = "";
-    }
-
-    /* === 7. MAIN SCAN HANDLER === */
-    async function onScan(text) {
-        if(isGlobalLocked) { toast("Scanners Paused", "error"); return; }
-        const id = text.trim().toUpperCase();
-
-        if(isProcessing) return;
-        isProcessing = true; 
-        if(scanner) scanner.pause();
-
-        try {
-            // Check local cache first for speed in offline mode
-            let person = localUserCache.find(u => u.id === id);
-            
-            // If not in local cache, try network
-            if(!person) {
-                const idDoc = await db.collection('allowed_ids').doc(id).get();
-                if(!idDoc.exists) throw new Error("ID Not Recognized");
-                person = idDoc.data();
-            }
-
-            const ref = db.collection('meal_records').doc(id);
-            const snap = await ref.get();
-            const data = snap.exists ? snap.data().meals || {} : {};
-            const today = getTodayDate();
-            const recordKey = `${currentMeal}_${today}`; 
-
-            if(data[recordKey]) {
-                showResult(false, {
-                    title: "ALREADY SERVED",
-                    msg: `Served at ${data[recordKey].time}`,
-                    name: person.name,
-                    cat: person.category || 'Guest',
-                    id: id,
-                    dept: person.department,
-                    info: person.info
-                });
-            } else {
-                // Use new Robust Write
-                await robustWrite(id, person, ref, recordKey);
-
-                showResult(true, {
-                    title: "ACCESS GRANTED",
-                    msg: "Meal Authorized",
-                    name: person.name,
-                    cat: person.category || 'Guest',
-                    id: id,
-                    dept: person.department,
-                    info: person.info
-                });
-            }
-        } catch(e) { 
-            showResult(false, {
-                title: "INVALID ID",
-                msg: e.message,
-                name: "Unknown",
-                cat: "Error",
-                id: id,
-                dept: "-",
-                info: "-"
-            }); 
-        }
-    }
-
-    /* === 8. RESULT CARD === */
-    function showResult(success, data) {
-        const modal = document.getElementById('resultModal');
-        const card = document.getElementById('resultCard');
-        
-        beep(success ? 800 : 200, success ? 'sine' : 'sawtooth');
-
-        const color = success ? 'green' : 'red';
-        const icon = success ? 'ph-check-circle' : 'ph-warning-circle';
-        
-        card.className = `bg-white w-80 rounded-[2rem] shadow-2xl transform transition-all duration-300 scale-100 p-0 overflow-hidden border-4 ${success ? 'border-green-500' : 'border-red-500'}`;
-
-        card.innerHTML = `
-            <div class="${success ? 'bg-green-50' : 'bg-red-50'} p-6 border-b ${success ? 'border-green-100' : 'border-red-100'} flex items-center gap-4">
-                <div class="w-12 h-12 rounded-full ${success ? 'bg-green-500' : 'bg-red-500'} flex items-center justify-center shrink-0 shadow-md">
-                    <i class="ph-fill ${icon} text-2xl text-white"></i>
-                </div>
-                <div>
-                    <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Status</div>
-                    <div class="text-xl font-extrabold ${success ? 'text-green-600' : 'text-red-600'} leading-none">${data.title}</div>
-                    <div class="text-[10px] font-bold ${success ? 'text-green-600' : 'text-red-600'} mt-1">${data.msg}</div>
-                </div>
-            </div>
-
-            <div class="p-6">
-                <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-1">Participant Name</div>
-                <div class="text-2xl font-bold text-slate-800 leading-tight mb-3 break-words">${data.name || 'Unknown'}</div>
-                
-                <div class="flex flex-wrap gap-2 mb-6">
-                    <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-mono font-bold border border-slate-200">${data.id}</span>
-                    <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 uppercase">${data.cat}</span>
-                </div>
-
-                <div class="bg-slate-50 rounded-xl p-3 space-y-2 border border-slate-100">
-                    <div class="flex justify-between items-start">
-                        <span class="text-[10px] font-bold uppercase text-slate-400">Department</span>
-                        <span class="text-xs font-bold text-slate-700 text-right max-w-[60%]">${data.dept || 'N/A'}</span>
-                    </div>
-                    ${data.info ? `
-                    <div class="flex justify-between items-start border-t border-slate-200 pt-2">
-                        <span class="text-[10px] font-bold uppercase text-slate-400">Info/Role</span>
-                        <span class="text-xs font-bold text-slate-900 text-right max-w-[60%]">${data.info}</span>
-                    </div>` : ''}
-                </div>
-
-                <button onclick="closeResult()" class="w-full mt-6 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                    <span>Scan Next</span> <i class="ph-bold ph-arrow-right"></i>
-                </button>
-            </div>
-        `;
-
-        modal.classList.remove('opacity-0', 'pointer-events-none');
-        card.classList.remove('result-anim');
-        void card.offsetWidth; 
-        card.classList.add('result-anim');
-    }
-
-    function closeResult() {
-        document.getElementById('resultModal').classList.add('opacity-0', 'pointer-events-none');
-        isProcessing = false; 
-        if(scanner && !isGlobalLocked) scanner.resume();
-    }
-
-    /* === 9. ADMIN HELPERS === */
-    function updateGlobalLockState(locked) {
-        isGlobalLocked = locked;
-        const bg = document.getElementById('masterLockBg');
-        const icon = document.getElementById('masterLockIcon');
-        const txt = document.getElementById('masterLockText');
-        if(locked) {
-            bg.className = "absolute inset-0 bg-red-100 transition-colors duration-500";
-            icon.className = "ph-fill ph-lock-key text-red-600 text-2xl relative z-10 transition-all";
-            txt.innerText = "All Locked"; txt.className = "text-[10px] font-bold text-red-700 uppercase tracking-wider relative z-10";
-            document.getElementById('adminLockOverlay').classList.remove('hidden');
-        } else {
-            bg.className = "absolute inset-0 bg-green-100/50 transition-colors duration-500";
-            icon.className = "ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all";
-            txt.innerText = "Scanners Active"; txt.className = "text-[10px] font-bold text-green-700 uppercase tracking-wider relative z-10";
-            document.getElementById('adminLockOverlay').classList.add('hidden');
-        }
-    }
-
-    function toggleGlobalLock() {
-        const newState = !isGlobalLocked;
-        db.collection('settings').doc('global').set({ scannerLocked: newState }, { merge: true })
-            .then(() => toast(newState ? "All Scanners Locked" : "All Scanners Unlocked", newState ? "error" : "success"));
-    }
-    
-    function updateLocalMealState(meal) {
-        currentMeal = meal;
-        if(document.getElementById('mealLabel')) document.getElementById('mealLabel').innerText = meal;
-        if(document.getElementById('lockedMealLabel')) document.getElementById('lockedMealLabel').innerText = meal;
-        let iconClass = 'ph-coffee'; let colorClass = 'text-orange-500';
-        if(meal==='Lunch') { iconClass='ph-hamburger'; colorClass='text-red-500'; }
-        if(meal==='Dinner') { iconClass='ph-moon-stars'; colorClass='text-indigo-500'; }
-        if(meal==='Snacks') { iconClass='ph-cookie'; colorClass='text-amber-500'; }
-        if(document.getElementById('mealIconDisplay')) document.getElementById('mealIconDisplay').parentElement.innerHTML = `<i id="mealIconDisplay" class="ph-fill ${iconClass} text-xl ${colorClass}"></i>`;
-    }
-
-    function adminSetGlobalMeal(val) {
-        db.collection('settings').doc('global').set({currentMeal: val}, {merge: true}).then(() => toast("Session Updated", "success"));
-        closeDropdown({target: document.body});
-    }
-
-    /* === 10. IMPORT/EXPORT/USER MGMT === */
-    function loadUsers() { 
-        const l = document.getElementById('userList'); 
-        l.innerHTML = ""; 
-        db.collection('users').orderBy('createdAt').get().then(s => { 
-            s.forEach(d => { 
-                const u = d.data(); 
-                if(u.disabled) return; 
-                const isMe = auth.currentUser.uid === d.id; 
-                const isAdmin = u.role === 'admin';
-                const avatarBg = isAdmin ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600';
-                const firstLetter = u.email.charAt(0).toUpperCase();
-
-                l.innerHTML += `
-                <div class="glass p-3 rounded-2xl flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0">${firstLetter}</div>
-                    <div class="flex-1 overflow-hidden">
-                        <div class="text-xs font-bold text-slate-800 truncate">${u.email}</div>
-                        <div class="flex items-center gap-1 mt-0.5">
-                            <span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isAdmin ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}">${u.role}</span>
-                            ${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}
-                        </div>
-                    </div>
-                    ${!isMe ? `<div class="flex gap-1 shrink-0">${isAdmin ? `<button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-orange-100 hover:text-orange-500 flex items-center justify-center"><i class="ph-bold ph-arrow-down"></i></button>` : `<button onclick="setRole('${d.id}','admin')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-blue-100 hover:text-blue-500 flex items-center justify-center"><i class="ph-bold ph-arrow-up"></i></button>`}<button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>` : ''}
-                </div>`;
-            }); 
-        }); 
-    }
-    
-    function setRole(id, r) { db.collection('users').doc(id).update({role:r}).then(loadUsers); }
-    function delUser(id) { if(confirm("Revoke access for this user?")) db.collection('users').doc(id).update({disabled: true}).then(loadUsers); }
-    
-    function uploadExcel(input) { 
-        if(!input.files[0]) return; 
-        const r = new FileReader(); 
-        toast("Processing...", "info"); 
-        r.onload = async e => { 
-            try { 
-                const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'}); 
-                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1}); 
-                const batch = db.batch(); 
-                let count = 0; 
-                rows.forEach((row, index) => { 
-                    if (index === 0 || !row[0]) return; 
-                    const id = String(row[0]).trim().toUpperCase();
-                    if(id) {
-                        const docRef = db.collection('allowed_ids').doc(id);
-                        batch.set(docRef, { active: true, category: row[1]||"Guest", name: row[2]||"Unknown", department: row[3]||"N/A", info: row[4]||"", importedAt: new Date() }); 
-                        count++; 
-                    }
-                }); 
-                await batch.commit(); 
-                toast(`${count} IDs Imported`, "success"); 
-                cacheUsersForSearch(); // Update local cache
-            } catch(e) { toast("Error reading file", "error"); } 
-        }; 
-        r.readAsArrayBuffer(input.files[0]); 
-    }
-
-    function toggleExportMenu() { const m = document.getElementById('exportMenu'); m.classList.toggle('hidden'); m.classList.toggle('flex'); }
-    async function downloadMasterReport() { toast("Generating Log...", "info"); toggleExportMenu(); const s = await db.collection('meal_records').get(); const rows = []; s.forEach(d => { const m = d.data().meals || {}; Object.keys(m).forEach(k => { const p=k.split('_'); rows.push({ ID: d.id, Meal: p[0], Date: p[1], Time: m[k].time }); }); }); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Logs"); XLSX.writeFile(wb, "Master_Report.xlsx"); }
-    async function downloadDailyReport() { toast("Generating Log...", "info"); toggleExportMenu(); const today = getTodayDate(); const s = await db.collection('meal_records').get(); const rows = []; s.forEach(d => { const m = d.data().meals || {}; Object.keys(m).forEach(k => { const p=k.split('_'); if(p[1]===today) rows.push({ ID: d.id, Meal: p[0], Time: m[k].time }); }); }); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Logs"); XLSX.writeFile(wb, `Report_${today}.xlsx`); toast("Downloaded", "success"); }
-
-    /* === 11. GENERAL UI === */
-    function toggleDropdown(e) { e.stopPropagation(); const m = document.getElementById('dropdownMenu'); const a = document.getElementById('dropdownArrow'); if (m.classList.contains('hidden')) { m.classList.remove('hidden'); m.classList.add('flex', 'menu-anim'); a.style.transform = "rotate(180deg)"; } else { m.classList.add('hidden'); m.classList.remove('flex', 'menu-anim'); a.style.transform = "rotate(0deg)"; } }
-    function closeDropdown(e) { const m = document.getElementById('dropdownMenu'); const t = document.getElementById('dropdownTrigger'); if (m && t && !m.contains(e.target) && !t.contains(e.target)) { m.classList.add('hidden'); m.classList.remove('flex', 'menu-anim'); document.getElementById('dropdownArrow').style.transform = "rotate(0deg)"; } }
-    
-    function toggleAuth() { 
-        initAudio();
-        isSignup = !isSignup; 
-        const b = document.getElementById('authBtn'); 
-        const s = document.getElementById('authSwitch'); 
-        const sub = document.getElementById('authSub'); 
-        if(isSignup) { b.innerHTML = `<span>Create Account</span> <i class="ph-bold ph-user-plus"></i>`; s.innerText = "Back to Login"; sub.innerText = "Register Staff Access"; } 
-        else { b.innerHTML = `<span>Authenticate</span> <i class="ph-bold ph-arrow-right"></i>`; s.innerText = "Create New Account"; sub.innerText = "Sign in to access terminal"; } 
-    }
-    
-    function handleAuth() { 
-        initAudio(); 
-        const e = document.getElementById('loginEmail').value; 
-        const p = document.getElementById('loginPassword').value; 
-        if(!e || !p) return toast("Enter credentials", "error"); 
-        if(isSignup) { auth.createUserWithEmailAndPassword(e, p).then(c => db.collection('users').doc(c.user.uid).set({email:e, role:'pending', createdAt:new Date(), disabled:false})).then(() => toast("Account created!", "success")).catch(err => toast(err.message, "error")); } 
-        else { auth.signInWithEmailAndPassword(e, p).catch(err => toast(err.message, "error")); } 
-    }
-    
-    function logout() { stopScanner(); auth.signOut(); }
-    function toast(msg, type) { const t = document.getElementById('toast'); const dot = document.getElementById('toastDot'); document.getElementById('toastMsg').innerText = msg; dot.className = type==='error'?"w-2 h-2 rounded-full bg-red-500":"w-2 h-2 rounded-full bg-green-400"; t.style.transform = "translate(-50%, 0)"; setTimeout(() => t.style.transform = "translate(-50%, -150px)", 3000); }
-    
-    function beep(freq, type) { 
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-        if (audioCtx.state === 'suspended') audioCtx.resume(); 
-        const osc = audioCtx.createOscillator(); 
-        const g = audioCtx.createGain(); 
-        osc.connect(g); 
-        g.connect(audioCtx.destination); 
-        osc.frequency.value = freq; 
-        osc.type = type; 
-        g.gain.setValueAtTime(0.1, audioCtx.currentTime); 
-        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2); 
-        osc.start(); 
-        osc.stop(audioCtx.currentTime + 0.2); 
-    }
 </script>
 </body>
 </html>
