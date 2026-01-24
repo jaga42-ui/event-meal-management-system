@@ -76,6 +76,13 @@
         <div id="toastDot" class="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80] shrink-0"></div>
         <span id="toastMsg" class="text-sm font-bold truncate">Ready</span>
     </div>
+    
+    <div id="offlineBadge" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[240] hidden transition-all">
+        <div class="bg-amber-100 border border-amber-200 shadow-xl text-amber-800 px-4 py-2 rounded-full flex items-center gap-3 animate-pulse">
+            <i class="ph-fill ph-wifi-slash"></i>
+            <span class="text-xs font-bold uppercase tracking-wider"><span id="queueCount">0</span> Pending Syncs</span>
+        </div>
+    </div>
 
     <div id="authScreen" class="absolute inset-0 z-50 flex items-center justify-center p-6 transition-opacity duration-500">
         <div class="w-full max-w-sm anim-enter relative z-10">
@@ -183,9 +190,21 @@
                         <p class="mt-5 text-xs font-bold text-white uppercase tracking-widest">Tap to Activate</p>
                     </div>
                 </div>
+                
                 <button id="stopBtn" onclick="stopScanner()" class="hidden w-full py-4 glass text-red-500 font-bold rounded-2xl shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2">
                     <i class="ph-bold ph-stop-circle text-xl"></i><span>Stop Camera</span>
                 </button>
+
+                <div class="glass p-4 rounded-[2rem] space-y-3">
+                    <div class="flex items-center gap-3 border-b border-slate-200/50 pb-2">
+                        <i class="ph-bold ph-magnifying-glass text-slate-400 text-xl"></i>
+                        <input oninput="handleSearch(this.value)" id="searchInput" type="text" placeholder="Search Name or ID..." class="bg-transparent w-full text-slate-700 font-bold focus:outline-none placeholder:text-slate-400/70 placeholder:font-medium">
+                        <button onclick="clearSearch()" id="clearSearchBtn" class="hidden text-slate-400 hover:text-red-500"><i class="ph-fill ph-x-circle"></i></button>
+                    </div>
+                    
+                    <div id="searchResults" class="hidden flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                        </div>
+                </div>
             </div>
 
             <div id="adminPanel" class="hidden space-y-4 anim-enter delay-200">
@@ -260,7 +279,7 @@
 
     <div id="resultModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
         <div id="resultCard" class="bg-white w-80 rounded-[2.5rem] overflow-hidden shadow-2xl transform transition-all duration-300 scale-95 p-6 border-4">
-            </div>
+        </div>
     </div>
 
 <script>
@@ -272,7 +291,10 @@
     };
 
     /* === 2. INITIALIZATION === */
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    
     const auth = firebase.auth();
     const db = firebase.firestore();
     db.enablePersistence().catch(err => console.warn("Persistence Error", err));
@@ -285,6 +307,10 @@
     let isSignup = false;
     let wakeLock = null;
     let audioCtx = null;
+    
+    // OFFLINE & SEARCH GLOBALS
+    let localUserCache = []; 
+    let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
 
     setTimeout(() => { 
         document.getElementById('splash').classList.add('splash-exit'); 
@@ -294,6 +320,15 @@
     /* === 3. UTILITIES === */
     function getTodayDate() {
         return new Date().toLocaleDateString('en-CA');
+    }
+
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
     }
 
     /* === 4. AUTH & SYNC === */
@@ -343,18 +378,172 @@
             document.getElementById('volunteerPanel').style.display = 'block';
             document.getElementById('adminMealControl').style.display = 'block';
             loadUsers();
+            cacheUsersForSearch();
             db.collection('allowed_ids').onSnapshot(snap => {
                 document.getElementById('admDatabaseCount').innerText = snap.size;
             });
         } else if (role === 'volunteer') {
             document.getElementById('volunteerPanel').style.display = 'block';
             document.getElementById('volunteerMealDisplay').style.display = 'flex';
+            cacheUsersForSearch(); // Preload search data
+            updateOfflineUI(); // Check queue
         }
     }
 
-    /* === 5. SCANNER LOGIC === */
+    /* === 5. OFFLINE & SEARCH LOGIC (NEW) === */
+    
+    async function cacheUsersForSearch() {
+        // Downloads minimal data for fallback search
+        try {
+            const snap = await db.collection('allowed_ids').get();
+            localUserCache = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch(e) { console.log("Cache load failed", e); }
+    }
+
+    function handleSearch(query) {
+        const resContainer = document.getElementById('searchResults');
+        const clearBtn = document.getElementById('clearSearchBtn');
+        
+        if(!query || query.length < 2) {
+            resContainer.classList.add('hidden');
+            clearBtn.classList.add('hidden');
+            return;
+        }
+
+        clearBtn.classList.remove('hidden');
+        resContainer.classList.remove('hidden');
+        resContainer.innerHTML = "";
+
+        const q = query.toLowerCase();
+        const results = localUserCache.filter(u => 
+            (u.name && u.name.toLowerCase().includes(q)) || 
+            (u.id && u.id.toLowerCase().includes(q))
+        ).slice(0, 10);
+
+        if(results.length === 0) {
+            resContainer.innerHTML = `<div class="text-center text-xs font-bold text-slate-400 py-2">No match found</div>`;
+            return;
+        }
+
+        results.forEach(u => {
+            resContainer.innerHTML += `
+                <div onclick="manualServe('${u.id}')" class="p-3 bg-white/50 hover:bg-white rounded-xl border border-transparent hover:border-slate-100 transition-all cursor-pointer flex justify-between items-center group">
+                    <div>
+                        <div class="text-xs font-bold text-slate-800">${u.name}</div>
+                        <div class="text-[10px] text-slate-500 font-mono">${u.id}</div>
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 group-hover:bg-[#2A7B9B] group-hover:text-white flex items-center justify-center transition-colors">
+                        <i class="ph-bold ph-check"></i>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = "";
+        handleSearch("");
+    }
+
+    function manualServe(id) {
+        onScan(id); 
+        clearSearch();
+    }
+
+    /* === OFFLINE QUEUE MANAGER === */
+    window.addEventListener('online', processQueue);
+    setInterval(processQueue, 10000); 
+
+    async function robustWrite(id, person, ref, recordKey) {
+        const payload = { 
+            id: id,
+            timestamp: new Date().getTime(),
+            meal: currentMeal,
+            date: getTodayDate(),
+            personName: person.name 
+        };
+
+        if (navigator.onLine) {
+            try {
+                const batch = db.batch();
+                batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: payload.date } } }, { merge: true });
+                batch.set(db.collection('stats').doc('counts'), { [recordKey]: firebase.firestore.FieldValue.increment(1), 'total_scans_ever': firebase.firestore.FieldValue.increment(1) }, { merge: true });
+                await batch.commit();
+                return true; 
+            } catch (e) {
+                console.warn("Write failed, adding to queue", e);
+                addToQueue(payload);
+                return true; 
+            }
+        } else {
+            addToQueue(payload);
+            return true; 
+        }
+    }
+
+    function addToQueue(data) {
+        offlineQueue.push(data);
+        localStorage.setItem('mealQueue', JSON.stringify(offlineQueue));
+        updateOfflineUI();
+        toast("Saved Offline", "info");
+    }
+
+    async function processQueue() {
+        if (!navigator.onLine || offlineQueue.length === 0) return;
+
+        const queueCopy = [...offlineQueue];
+        document.getElementById('queueCount').innerText = "Syncing...";
+        
+        const batch = db.batch();
+        
+        queueCopy.forEach(item => {
+            const ref = db.collection('meal_records').doc(item.id);
+            const recordKey = `${item.meal}_${item.date}`;
+            
+            batch.set(ref, { 
+                meals: { 
+                    [recordKey]: { 
+                        time: new Date(item.timestamp).toLocaleTimeString(), 
+                        date: item.date 
+                    } 
+                } 
+            }, { merge: true });
+            
+            batch.set(db.collection('stats').doc('counts'), { 
+                [recordKey]: firebase.firestore.FieldValue.increment(1), 
+                'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
+            }, { merge: true });
+        });
+
+        try {
+            await batch.commit();
+            offlineQueue = [];
+            localStorage.setItem('mealQueue', JSON.stringify(offlineQueue));
+            updateOfflineUI();
+            toast("Synced " + queueCopy.length + " records", "success");
+        } catch (e) {
+            console.error("Sync failed", e);
+        }
+    }
+
+    function updateOfflineUI() {
+        const badge = document.getElementById('offlineBadge');
+        const count = document.getElementById('queueCount');
+        
+        if (offlineQueue.length > 0) {
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+            count.innerText = offlineQueue.length;
+        } else {
+            badge.classList.add('hidden');
+            badge.classList.remove('flex');
+        }
+    }
+
+    /* === 6. SCANNER LOGIC === */
     async function startScanner() {
         if(scanner || isGlobalLocked) return;
+        initAudio();
         try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
 
         document.getElementById('startOverlay').classList.add('opacity-0', 'pointer-events-none');
@@ -369,7 +558,7 @@
 
     async function stopScanner() {
         if(!scanner) return;
-        try { if(scanner.isScanning) await scanner.stop(); scanner.clear(); } catch(e) {}
+        try { if(scanner.isScanning) await scanner.stop(); scanner.clear(); } catch(e) { console.log(e); }
         scanner = null;
         isScanning = false;
         if (wakeLock) { await wakeLock.release(); wakeLock = null; }
@@ -378,20 +567,26 @@
         document.getElementById('reader').innerHTML = "";
     }
 
-    /* === 6. MAIN SCAN HANDLER === */
+    /* === 7. MAIN SCAN HANDLER === */
     async function onScan(text) {
         if(isGlobalLocked) { toast("Scanners Paused", "error"); return; }
         const id = text.trim().toUpperCase();
 
         if(isProcessing) return;
         isProcessing = true; 
-        scanner.pause();
+        if(scanner) scanner.pause();
 
         try {
-            const idDoc = await db.collection('allowed_ids').doc(id).get();
-            if(!idDoc.exists) throw new Error("ID Not Recognized");
+            // Check local cache first for speed in offline mode
+            let person = localUserCache.find(u => u.id === id);
+            
+            // If not in local cache, try network
+            if(!person) {
+                const idDoc = await db.collection('allowed_ids').doc(id).get();
+                if(!idDoc.exists) throw new Error("ID Not Recognized");
+                person = idDoc.data();
+            }
 
-            const person = idDoc.data();
             const ref = db.collection('meal_records').doc(id);
             const snap = await ref.get();
             const data = snap.exists ? snap.data().meals || {} : {};
@@ -409,10 +604,8 @@
                     info: person.info
                 });
             } else {
-                const batch = db.batch();
-                batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: today } } }, { merge: true });
-                batch.set(db.collection('stats').doc('counts'), { [recordKey]: firebase.firestore.FieldValue.increment(1), 'total_scans_ever': firebase.firestore.FieldValue.increment(1) }, { merge: true });
-                await batch.commit();
+                // Use new Robust Write
+                await robustWrite(id, person, ref, recordKey);
 
                 showResult(true, {
                     title: "ACCESS GRANTED",
@@ -437,7 +630,7 @@
         }
     }
 
-    /* === 7. RESULT CARD (REDESIGNED FOR DATA VISIBILITY) === */
+    /* === 8. RESULT CARD === */
     function showResult(success, data) {
         const modal = document.getElementById('resultModal');
         const card = document.getElementById('resultCard');
@@ -447,10 +640,8 @@
         const color = success ? 'green' : 'red';
         const icon = success ? 'ph-check-circle' : 'ph-warning-circle';
         
-        // Dynamic Border color based on status
         card.className = `bg-white w-80 rounded-[2rem] shadow-2xl transform transition-all duration-300 scale-100 p-0 overflow-hidden border-4 ${success ? 'border-green-500' : 'border-red-500'}`;
 
-        // Data-First Layout
         card.innerHTML = `
             <div class="${success ? 'bg-green-50' : 'bg-red-50'} p-6 border-b ${success ? 'border-green-100' : 'border-red-100'} flex items-center gap-4">
                 <div class="w-12 h-12 rounded-full ${success ? 'bg-green-500' : 'bg-red-500'} flex items-center justify-center shrink-0 shadow-md">
@@ -491,7 +682,6 @@
         `;
 
         modal.classList.remove('opacity-0', 'pointer-events-none');
-        // Trigger reflow for animation
         card.classList.remove('result-anim');
         void card.offsetWidth; 
         card.classList.add('result-anim');
@@ -503,7 +693,7 @@
         if(scanner && !isGlobalLocked) scanner.resume();
     }
 
-    /* === 8. ADMIN HELPERS === */
+    /* === 9. ADMIN HELPERS === */
     function updateGlobalLockState(locked) {
         isGlobalLocked = locked;
         const bg = document.getElementById('masterLockBg');
@@ -544,7 +734,7 @@
         closeDropdown({target: document.body});
     }
 
-    /* === 9. IMPORT/EXPORT/USER MGMT === */
+    /* === 10. IMPORT/EXPORT/USER MGMT === */
     function loadUsers() { 
         const l = document.getElementById('userList'); 
         l.innerHTML = ""; 
@@ -597,6 +787,7 @@
                 }); 
                 await batch.commit(); 
                 toast(`${count} IDs Imported`, "success"); 
+                cacheUsersForSearch(); // Update local cache
             } catch(e) { toast("Error reading file", "error"); } 
         }; 
         r.readAsArrayBuffer(input.files[0]); 
@@ -606,14 +797,46 @@
     async function downloadMasterReport() { toast("Generating Log...", "info"); toggleExportMenu(); const s = await db.collection('meal_records').get(); const rows = []; s.forEach(d => { const m = d.data().meals || {}; Object.keys(m).forEach(k => { const p=k.split('_'); rows.push({ ID: d.id, Meal: p[0], Date: p[1], Time: m[k].time }); }); }); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Logs"); XLSX.writeFile(wb, "Master_Report.xlsx"); }
     async function downloadDailyReport() { toast("Generating Log...", "info"); toggleExportMenu(); const today = getTodayDate(); const s = await db.collection('meal_records').get(); const rows = []; s.forEach(d => { const m = d.data().meals || {}; Object.keys(m).forEach(k => { const p=k.split('_'); if(p[1]===today) rows.push({ ID: d.id, Meal: p[0], Time: m[k].time }); }); }); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Logs"); XLSX.writeFile(wb, `Report_${today}.xlsx`); toast("Downloaded", "success"); }
 
-    /* === 10. GENERAL UI === */
+    /* === 11. GENERAL UI === */
     function toggleDropdown(e) { e.stopPropagation(); const m = document.getElementById('dropdownMenu'); const a = document.getElementById('dropdownArrow'); if (m.classList.contains('hidden')) { m.classList.remove('hidden'); m.classList.add('flex', 'menu-anim'); a.style.transform = "rotate(180deg)"; } else { m.classList.add('hidden'); m.classList.remove('flex', 'menu-anim'); a.style.transform = "rotate(0deg)"; } }
     function closeDropdown(e) { const m = document.getElementById('dropdownMenu'); const t = document.getElementById('dropdownTrigger'); if (m && t && !m.contains(e.target) && !t.contains(e.target)) { m.classList.add('hidden'); m.classList.remove('flex', 'menu-anim'); document.getElementById('dropdownArrow').style.transform = "rotate(0deg)"; } }
-    function toggleAuth() { isSignup = !isSignup; const b = document.getElementById('authBtn'); const s = document.getElementById('authSwitch'); const sub = document.getElementById('authSub'); if(isSignup) { b.innerHTML = `<span>Create Account</span> <i class="ph-bold ph-user-plus"></i>`; s.innerText = "Back to Login"; sub.innerText = "Register Staff Access"; } else { b.innerHTML = `<span>Authenticate</span> <i class="ph-bold ph-arrow-right"></i>`; s.innerText = "Create New Account"; sub.innerText = "Sign in to access terminal"; } }
-    function handleAuth() { const e = document.getElementById('loginEmail').value; const p = document.getElementById('loginPassword').value; if(!e || !p) return toast("Enter credentials", "error"); if(isSignup) { auth.createUserWithEmailAndPassword(e, p).then(c => db.collection('users').doc(c.user.uid).set({email:e, role:'pending', createdAt:new Date(), disabled:false})).then(() => toast("Account created!", "success")).catch(err => toast(err.message, "error")); } else { auth.signInWithEmailAndPassword(e, p).catch(err => toast(err.message, "error")); } }
+    
+    function toggleAuth() { 
+        initAudio();
+        isSignup = !isSignup; 
+        const b = document.getElementById('authBtn'); 
+        const s = document.getElementById('authSwitch'); 
+        const sub = document.getElementById('authSub'); 
+        if(isSignup) { b.innerHTML = `<span>Create Account</span> <i class="ph-bold ph-user-plus"></i>`; s.innerText = "Back to Login"; sub.innerText = "Register Staff Access"; } 
+        else { b.innerHTML = `<span>Authenticate</span> <i class="ph-bold ph-arrow-right"></i>`; s.innerText = "Create New Account"; sub.innerText = "Sign in to access terminal"; } 
+    }
+    
+    function handleAuth() { 
+        initAudio(); 
+        const e = document.getElementById('loginEmail').value; 
+        const p = document.getElementById('loginPassword').value; 
+        if(!e || !p) return toast("Enter credentials", "error"); 
+        if(isSignup) { auth.createUserWithEmailAndPassword(e, p).then(c => db.collection('users').doc(c.user.uid).set({email:e, role:'pending', createdAt:new Date(), disabled:false})).then(() => toast("Account created!", "success")).catch(err => toast(err.message, "error")); } 
+        else { auth.signInWithEmailAndPassword(e, p).catch(err => toast(err.message, "error")); } 
+    }
+    
     function logout() { stopScanner(); auth.signOut(); }
     function toast(msg, type) { const t = document.getElementById('toast'); const dot = document.getElementById('toastDot'); document.getElementById('toastMsg').innerText = msg; dot.className = type==='error'?"w-2 h-2 rounded-full bg-red-500":"w-2 h-2 rounded-full bg-green-400"; t.style.transform = "translate(-50%, 0)"; setTimeout(() => t.style.transform = "translate(-50%, -150px)", 3000); }
-    function beep(freq, type) { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); const osc = audioCtx.createOscillator(); const g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.frequency.value = freq; osc.type = type; g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
+    
+    function beep(freq, type) { 
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
+        if (audioCtx.state === 'suspended') audioCtx.resume(); 
+        const osc = audioCtx.createOscillator(); 
+        const g = audioCtx.createGain(); 
+        osc.connect(g); 
+        g.connect(audioCtx.destination); 
+        osc.frequency.value = freq; 
+        osc.type = type; 
+        g.gain.setValueAtTime(0.1, audioCtx.currentTime); 
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2); 
+        osc.start(); 
+        osc.stop(audioCtx.currentTime + 0.2); 
+    }
 </script>
 </body>
 </html>
