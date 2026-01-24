@@ -191,25 +191,21 @@
                     </div>
                 </div>
                 
-                <button id="stopBtn" onclick="stopScanner()" class="hidden w-full py-4 glass text-red-500 font-bold rounded-2xl shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2 active:scale-95">
-                    <i class="ph-bold ph-stop-circle text-xl"></i><span>Stop Camera</span>
-                </button>
-
-                <div class="glass p-4 rounded-[2rem] relative z-40">
-                    <div class="relative group">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <i class="ph-bold ph-magnifying-glass text-slate-400 text-xl group-focus-within:text-[#2A7B9B] transition-colors"></i>
-                        </div>
-                        <input oninput="handleSearch(this.value)" id="searchInput" type="text" placeholder="Search Name or ID..." class="block w-full pl-11 pr-10 py-4 bg-slate-50 border-2 border-transparent focus:border-[#2A7B9B]/30 rounded-2xl text-slate-800 font-bold placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-0 transition-all shadow-inner">
-                        <button onclick="clearSearch()" id="clearSearchBtn" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-red-500 hover:scale-110 transition-all cursor-pointer">
-                            <i class="ph-fill ph-x-circle text-xl"></i>
+                <div class="flex items-center gap-3">
+                    <div id="searchWidget" class="glass h-16 rounded-[1.5rem] flex items-center transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] w-16 overflow-hidden relative shadow-lg">
+                        <button onclick="toggleSearch()" class="w-16 h-16 flex items-center justify-center shrink-0 text-slate-400 hover:text-[#2A7B9B] transition-colors relative z-20">
+                            <i id="searchIcon" class="ph-bold ph-magnifying-glass text-xl transition-transform duration-300"></i>
                         </button>
+                        <input oninput="handleSearch(this.value)" id="searchInput" type="text" placeholder="Search ID..." class="w-full h-full bg-transparent border-none focus:ring-0 text-slate-800 font-bold placeholder:text-slate-400 pr-4 opacity-0 transition-opacity duration-300 absolute left-16 top-0">
                     </div>
-                    
-                    <div id="searchResults" class="hidden mt-2 flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar relative z-50">
-                    </div>
+                    <button id="stopBtn" onclick="stopScanner()" class="hidden flex-1 h-16 glass text-red-500 font-bold rounded-[1.5rem] shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2 active:scale-95">
+                        <i class="ph-bold ph-stop-circle text-xl"></i><span>Stop Camera</span>
+                    </button>
                 </div>
-                </div>
+
+                <div id="searchResults" class="hidden mt-2 glass p-2 rounded-[1.5rem] flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar relative z-50"></div>
+
+            </div>
 
             <div id="adminPanel" class="hidden space-y-4 anim-enter delay-200">
                 <div class="glass-dark p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
@@ -311,6 +307,7 @@
     let isSignup = false;
     let wakeLock = null;
     let audioCtx = null;
+    let isSearchOpen = false;
     
     // OFFLINE & SEARCH GLOBALS
     let localUserCache = []; 
@@ -403,19 +400,46 @@
             localUserCache = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         } catch(e) { console.log("Cache load failed", e); }
     }
+    
+    function toggleSearch() {
+        const widget = document.getElementById('searchWidget');
+        const input = document.getElementById('searchInput');
+        const icon = document.getElementById('searchIcon');
+        const res = document.getElementById('searchResults');
+        
+        isSearchOpen = !isSearchOpen;
+        
+        if(isSearchOpen) {
+            widget.classList.remove('w-16');
+            widget.classList.add('w-full');
+            input.classList.remove('opacity-0');
+            icon.classList.remove('ph-magnifying-glass');
+            icon.classList.add('ph-x', 'text-red-400');
+            icon.style.transform = 'rotate(90deg)';
+            input.focus();
+        } else {
+            widget.classList.add('w-16');
+            widget.classList.remove('w-full');
+            input.classList.add('opacity-0');
+            icon.classList.add('ph-magnifying-glass');
+            icon.classList.remove('ph-x', 'text-red-400');
+            icon.style.transform = 'rotate(0deg)';
+            input.value = "";
+            res.innerHTML = "";
+            res.classList.add('hidden');
+            res.classList.remove('flex');
+        }
+    }
 
     function handleSearch(query) {
         const resContainer = document.getElementById('searchResults');
-        const clearBtn = document.getElementById('clearSearchBtn');
         
         if(!query || query.length < 2) {
             resContainer.classList.add('hidden');
             resContainer.classList.remove('flex');
-            clearBtn.classList.add('hidden');
             return;
         }
 
-        clearBtn.classList.remove('hidden');
         resContainer.classList.remove('hidden');
         resContainer.classList.add('flex');
         resContainer.innerHTML = "";
@@ -424,7 +448,7 @@
         const results = localUserCache.filter(u => 
             (u.name && u.name.toLowerCase().includes(q)) || 
             (u.id && u.id.toLowerCase().includes(q))
-        ).slice(0, 10);
+        ).slice(0, 5);
 
         if(results.length === 0) {
             resContainer.innerHTML = `<div class="text-center text-xs font-bold text-slate-400 py-2">No match found</div>`;
@@ -446,14 +470,9 @@
         });
     }
 
-    function clearSearch() {
-        document.getElementById('searchInput').value = "";
-        handleSearch("");
-    }
-
     function manualServe(id) {
         onScan(id); 
-        clearSearch();
+        toggleSearch(); // Close search after selection
     }
 
     /* === OFFLINE QUEUE MANAGER === */
