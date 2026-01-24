@@ -19,26 +19,20 @@
     <style>
         body { font-family: 'Outfit', sans-serif; overflow: hidden; }
 
-        /* === GRADIENT THEME === */
         .custom-bg {
             background: #2A7B9B;
             background: linear-gradient(133deg, rgba(42, 123, 155, 1) 0%, rgba(87, 199, 133, 1) 50%, rgba(36, 128, 209, 1) 100%);
         }
 
-        /* === ANIMATIONS === */
+        /* Animations */
         @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
         .anim-float { animation: float 6s ease-in-out infinite; }
-
         @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         .anim-enter { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
-        
-        @keyframes popIn { 
-            0% { transform: scale(0.95); opacity: 0; } 
-            100% { transform: scale(1); opacity: 1; } 
-        }
+        @keyframes popIn { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         .result-anim { animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-        /* === LASER ANIMATION === */
+        
+        /* Laser */
         @keyframes scan { 
             0% { top: 10%; opacity: 0; transform: scaleX(0.9); box-shadow: 0 0 2px #57C785; } 
             15% { opacity: 1; transform: scaleX(1); box-shadow: 0 0 20px #57C785; } 
@@ -46,46 +40,18 @@
             100% { top: 90%; opacity: 0; transform: scaleX(0.9); box-shadow: 0 0 2px #57C785; } 
         }
         .scan-laser { 
-            position: absolute; 
-            left: 5%; 
-            right: 5%; 
-            height: 3px; 
-            background: #57C785; 
-            border-radius: 50%;
-            z-index: 30;
-            animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate; 
-            pointer-events: none;
-        }
-
-        /* === SPOTLIGHT SEARCH ANIMATION === */
-        .spotlight-overlay { 
-            opacity: 0; 
-            pointer-events: none; 
-            transition: opacity 0.3s ease; 
-            backdrop-filter: blur(8px);
-            background: rgba(15, 23, 42, 0.6);
-        }
-        .spotlight-overlay.active { opacity: 1; pointer-events: auto; }
-        
-        .spotlight-box {
-            transform: scale(0.95) translateY(-20px);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .spotlight-overlay.active .spotlight-box {
-            transform: scale(1) translateY(0);
+            position: absolute; left: 5%; right: 5%; height: 3px; background: #57C785; border-radius: 50%; z-index: 30;
+            animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate; pointer-events: none;
         }
 
         @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
         .splash-exit { animation: fadeOut 0.8s ease-in forwards; }
-
         @keyframes menuSlide { from { opacity: 0; transform: translateY(-10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .menu-anim { animation: menuSlide 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
 
-        /* === GLASS UI === */
         .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); }
         .glass-dark { background: rgba(15, 17, 42, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
         
-        /* === UTILS === */
         #reader__scan_region { display: none !important; }
         #reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; border-radius: 40px !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -116,28 +82,6 @@
             <i class="ph-fill ph-wifi-slash"></i>
             <span class="text-xs font-bold uppercase tracking-wider"><span id="queueCount">0</span> Pending Syncs</span>
         </div>
-    </div>
-
-    <div id="spotlightOverlay" class="fixed inset-0 z-[150] spotlight-overlay flex flex-col items-center pt-24 px-6">
-        <div class="spotlight-box w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden relative z-[160]">
-            <div class="flex items-center p-4 border-b border-slate-100">
-                <i class="ph-bold ph-magnifying-glass text-2xl text-slate-400 ml-2"></i>
-                <input id="searchInput" oninput="handleSearch(this.value)" type="text" 
-                    placeholder="Enter Student ID..." 
-                    class="flex-1 text-lg font-bold text-slate-800 placeholder:text-slate-300 border-none focus:ring-0 bg-transparent h-12 ml-2">
-                <button onclick="closeSearch()" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors">
-                    <span class="text-xs font-bold">ESC</span>
-                </button>
-            </div>
-            
-            <div id="searchResults" class="max-h-80 overflow-y-auto custom-scrollbar bg-slate-50/50">
-                <div class="p-8 text-center text-slate-400 flex flex-col items-center">
-                    <i class="ph-duotone ph-identification-card text-4xl mb-2 opacity-50"></i>
-                    <p class="text-xs font-bold uppercase tracking-widest">Type Exact ID to Search</p>
-                </div>
-            </div>
-        </div>
-        <div class="absolute inset-0 z-[140]" onclick="closeSearch()"></div>
     </div>
 
     <div id="authScreen" class="absolute inset-0 z-50 flex items-center justify-center p-6 transition-opacity duration-500">
@@ -184,11 +128,7 @@
                         <div id="roleBadge" class="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">CONNECTING...</div>
                     </div>
                 </div>
-                
                 <div class="flex items-center gap-2">
-                    <button onclick="openSearch()" class="w-10 h-10 rounded-full bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-white hover:text-[#2A7B9B] transition-all flex items-center justify-center shadow-md group">
-                        <i class="ph-bold ph-magnifying-glass text-lg group-hover:scale-110 transition-transform"></i>
-                    </button>
                     <button onclick="logout()" class="w-10 h-10 rounded-full bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-red-500/80 hover:border-red-500 transition-all flex items-center justify-center shadow-md">
                         <i class="ph-bold ph-power text-lg"></i>
                     </button>
@@ -234,61 +174,35 @@
         </div>
 
         <main class="flex-1 overflow-y-auto p-6 space-y-6 pb-24 no-scrollbar z-10">
-
             <div id="volunteerPanel" class="hidden space-y-4 anim-enter delay-200">
-                
                 <div class="relative w-full aspect-square bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white/40 backdrop-blur-sm group">
                     <div id="reader" class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    
                     <div id="scannerLaser" class="scan-laser hidden"></div>
-
                     <div id="adminLockOverlay" class="absolute inset-0 bg-red-900/90 backdrop-blur-md z-[60] flex flex-col items-center justify-center hidden">
-                        <div class="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_30px_#ef4444] animate-pulse mb-4">
-                            <i class="ph-fill ph-lock-key text-4xl text-white"></i>
-                        </div>
+                        <div class="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_30px_#ef4444] animate-pulse mb-4"><i class="ph-fill ph-lock-key text-4xl text-white"></i></div>
                         <h2 class="text-2xl font-bold text-white uppercase tracking-widest">Paused</h2>
                     </div>
-
                     <div id="startOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-md z-10">
-                        <button onclick="startScanner()" class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.4)] ring-anim hover:scale-105 transition-transform active:scale-95">
-                            <i class="ph-fill ph-camera text-3xl text-[#2480D1]"></i>
-                        </button>
+                        <button onclick="startScanner()" class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.4)] ring-anim hover:scale-105 transition-transform active:scale-95"><i class="ph-fill ph-camera text-3xl text-[#2480D1]"></i></button>
                         <p class="mt-5 text-xs font-bold text-white uppercase tracking-widest">Tap to Activate</p>
                     </div>
                 </div>
-                
-                <button id="stopBtn" onclick="stopScanner()" class="hidden w-full h-16 glass text-red-500 font-bold rounded-[1.5rem] shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2 active:scale-95">
-                    <i class="ph-bold ph-stop-circle text-xl"></i><span>Stop Camera</span>
-                </button>
-
+                <button id="stopBtn" onclick="stopScanner()" class="hidden w-full h-16 glass text-red-500 font-bold rounded-[1.5rem] shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2 active:scale-95"><i class="ph-bold ph-stop-circle text-xl"></i><span>Stop Camera</span></button>
             </div>
 
             <div id="adminPanel" class="hidden space-y-4 anim-enter delay-200">
                 <div class="glass-dark p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
                     <div class="absolute -top-10 -right-10 w-40 h-40 bg-[#2480D1] rounded-full blur-[60px] opacity-50"></div>
-                    <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-[#57C785] rounded-full blur-[60px] opacity-50"></div>
-                    
-                    <h3 class="font-bold text-lg mb-5 relative z-10 flex items-center gap-2">
-                        <i class="ph-fill ph-chart-line-up"></i> Live Counters
-                    </h3>
-                    
+                    <h3 class="font-bold text-lg mb-5 relative z-10 flex items-center gap-2"><i class="ph-fill ph-chart-line-up"></i> Live Counters</h3>
                     <div class="grid grid-cols-2 gap-4 relative z-10">
                         <div class="bg-white/10 p-3 rounded-2xl border border-white/10">
                             <div class="text-green-300 text-[10px] font-bold uppercase mb-1 tracking-wider">Current Session</div>
-                            <div class="flex items-baseline gap-1">
-                                <div class="text-2xl font-bold text-white" id="admSessionCount">0</div>
-                                <div class="text-[9px] opacity-60">Today</div>
-                            </div>
+                            <div class="text-2xl font-bold text-white" id="admSessionCount">0</div>
                         </div>
-
                         <div class="bg-white/10 p-3 rounded-2xl border border-white/10">
                             <div class="text-blue-300 text-[10px] font-bold uppercase mb-1 tracking-wider">Total Served</div>
-                            <div class="flex items-baseline gap-1">
-                                <div class="text-2xl font-bold text-white" id="admTotalEventMeals">0</div>
-                                <div class="text-[9px] opacity-60">Cumulative</div>
-                            </div>
+                            <div class="text-2xl font-bold text-white" id="admTotalEventMeals">0</div>
                         </div>
-                        
                         <div class="col-span-2 bg-white/5 p-3 rounded-2xl border border-white/5 flex items-center justify-between px-4">
                             <div class="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Registered People</div>
                             <div class="text-2xl font-bold text-white" id="admDatabaseCount">0</div>
@@ -301,29 +215,18 @@
                         <i class="ph-fill ph-microsoft-excel-logo text-green-600 text-2xl group-hover:scale-110 transition-transform"></i>
                         <input type="file" id="excelInput" accept=".xlsx" class="hidden" onchange="uploadExcel(this)">
                     </button>
-
-                    <div onclick="toggleExportMenu()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer hover:scale-105 active:scale-95">
+                    <div onclick="downloadDailyReport()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer hover:scale-105 active:scale-95">
                         <i class="ph-fill ph-download-simple text-blue-600 text-2xl group-hover:scale-110 transition-transform"></i>
-                        
-                        <div id="exportMenu" onclick="event.stopPropagation()" class="hidden absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl p-2 z-[60] flex-col gap-1 border border-slate-100 cursor-default">
-                            <div onclick="downloadDailyReport()" class="p-3 hover:bg-blue-50 rounded-xl text-left cursor-pointer transition-colors group">
-                                <div class="text-xs font-extrabold text-slate-900 group-hover:text-blue-600">Today's Report</div>
-                            </div>
-                            <div onclick="downloadMasterReport()" class="p-3 hover:bg-green-50 rounded-xl text-left cursor-pointer border-t border-slate-100 transition-colors group">
-                                <div class="text-xs font-extrabold text-slate-900 group-hover:text-green-600">Master Report</div>
-                            </div>
-                        </div>
                     </div>
-
                     <button onclick="toggleGlobalLock()" id="masterLockBtn" class="col-span-2 glass p-3 rounded-3xl flex flex-col items-center justify-center gap-1 transition-all group relative overflow-hidden hover:scale-[1.02] active:scale-[0.98]">
                         <div id="masterLockBg" class="absolute inset-0 bg-green-100/50 transition-colors duration-500"></div>
                         <i id="masterLockIcon" class="ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all duration-300"></i>
                         <span id="masterLockText" class="text-[10px] font-bold text-green-700 uppercase tracking-wider relative z-10">Scanners Active</span>
                     </button>
                 </div>
-
+                
                 <div class="glass rounded-[2.5rem] p-6 relative z-0">
-                    <div class="flex justify-between items-center mb-4 border-b border-slate-200/50 pb-3">
+                     <div class="flex justify-between items-center mb-4 border-b border-slate-200/50 pb-3">
                         <span class="font-bold text-slate-700">Team Management</span>
                         <button onclick="loadUsers()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-[#2480D1] flex items-center justify-center transition-colors hover:rotate-90 duration-500"><i class="ph-bold ph-arrows-clockwise"></i></button>
                     </div>
@@ -334,27 +237,27 @@
     </div>
 
     <div id="resultModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
-        <div id="resultCard" class="bg-white w-80 rounded-[2.5rem] overflow-hidden shadow-2xl transform transition-all duration-300 scale-95 p-6 border-4">
-        </div>
+        <div id="resultCard" class="bg-white w-80 rounded-[2.5rem] overflow-hidden shadow-2xl transform transition-all duration-300 scale-95 p-6 border-4"></div>
     </div>
 
 <script>
-    /* === 1. CONFIGURATION === */
+    /* =========================================
+       1. FIREBASE CONFIGURATION
+       ========================================= */
     const firebaseConfig = {
         apiKey: "AIzaSyDlgdYJ9-3ELhEjLz8EQJQK18ghlWhR-jo",
         authDomain: "orc-meal-tracker.firebaseapp.com",
         projectId: "orc-meal-tracker"
     };
 
-    /* === 2. INITIALIZATION === */
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
     db.enablePersistence().catch(err => console.warn("Persistence Error", err));
 
+    /* =========================================
+       2. STATE & GLOBALS
+       ========================================= */
     let currentMeal = "";
     let isGlobalLocked = false;
     let scanner = null;
@@ -363,62 +266,116 @@
     let isSignup = false;
     let wakeLock = null;
     let audioCtx = null;
-    
-    // OFFLINE & QUEUE
     let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
+    
+    // CACHE (Used ONLY for scanner lookup, not search bar)
+    let allUsersCache = [];
+    let isCacheLoaded = false;
 
-    setTimeout(() => { 
-        document.getElementById('splash').classList.add('splash-exit'); 
-        setTimeout(() => document.getElementById('splash').remove(), 800); 
-    }, 2000);
+    setTimeout(() => { document.getElementById('splash').classList.add('splash-exit'); setTimeout(() => document.getElementById('splash').remove(), 800); }, 2000);
 
-    /* === 3. UTILITIES === */
-    function getTodayDate() {
-        return new Date().toLocaleDateString('en-CA');
-    }
-
+    /* =========================================
+       3. UTILITIES
+       ========================================= */
+    function getTodayDate() { return new Date().toLocaleDateString('en-CA'); }
+    
     function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    
+    function beep(freq, type) { 
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
+        if (audioCtx.state === 'suspended') audioCtx.resume(); 
+        const osc = audioCtx.createOscillator(); 
+        const g = audioCtx.createGain(); 
+        osc.connect(g); g.connect(audioCtx.destination); 
+        osc.frequency.value = freq; osc.type = type; 
+        g.gain.setValueAtTime(0.1, audioCtx.currentTime); 
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2); 
+        osc.start(); osc.stop(audioCtx.currentTime + 0.2); 
     }
 
-    /* === 4. AUTH & SYNC === */
+    function toast(msg, type) { 
+        const t = document.getElementById('toast'); 
+        const dot = document.getElementById('toastDot'); 
+        document.getElementById('toastMsg').innerText = msg; 
+        dot.className = type==='error'?"w-2 h-2 rounded-full bg-red-500":"w-2 h-2 rounded-full bg-green-400"; 
+        t.style.transform = "translate(-50%, 0)"; 
+        setTimeout(() => t.style.transform = "translate(-50%, -150px)", 3000); 
+    }
+
+    /* =========================================
+       4. AUTHENTICATION
+       ========================================= */
     auth.onAuthStateChanged(user => {
         if(user) {
             document.getElementById('authScreen').classList.add('opacity-0', 'pointer-events-none');
             document.getElementById('dashboard').classList.remove('hidden');
             initDashboard(user.uid);
-            
-            db.collection('settings').doc('global').onSnapshot(doc => {
-                if(doc.exists) { 
-                    const d = doc.data();
-                    updateLocalMealState(d.currentMeal); 
-                    updateGlobalLockState(d.scannerLocked || false);
-                } else if(document.getElementById('adminPanel').style.display === 'block') {
-                    db.collection('settings').doc('global').set({currentMeal: 'Breakfast', scannerLocked: false}, {merge:true});
-                }
-            });
-
-            db.collection('stats').doc('counts').onSnapshot(doc => {
-                if (doc.exists && currentMeal) {
-                    const data = doc.data();
-                    const sessionKey = `${currentMeal}_${getTodayDate()}`;
-                    document.getElementById('admSessionCount').innerText = data[sessionKey] || 0;
-                    document.getElementById('volHeaderCount').innerText = `${data[sessionKey] || 0} Scanned`;
-                    document.getElementById('admTotalEventMeals').innerText = data['total_scans_ever'] || 0;
-                }
-            });
-
+            setupListeners();
         } else {
             document.getElementById('authScreen').classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('dashboard').classList.add('hidden');
         }
     });
 
+    function setupListeners() {
+        db.collection('settings').doc('global').onSnapshot(doc => {
+            if(doc.exists) { 
+                const d = doc.data();
+                updateLocalMealState(d.currentMeal); 
+                updateGlobalLockState(d.scannerLocked || false);
+            } else if(document.getElementById('adminPanel').style.display === 'block') {
+                db.collection('settings').doc('global').set({currentMeal: 'Breakfast', scannerLocked: false}, {merge:true});
+            }
+        });
+
+        db.collection('stats').doc('counts').onSnapshot(doc => {
+            if (doc.exists && currentMeal) {
+                const data = doc.data();
+                const sessionKey = `${currentMeal}_${getTodayDate()}`;
+                document.getElementById('admSessionCount').innerText = data[sessionKey] || 0;
+                document.getElementById('volHeaderCount').innerText = `${data[sessionKey] || 0} Scanned`;
+                document.getElementById('admTotalEventMeals').innerText = data['total_scans_ever'] || 0;
+            }
+        });
+        
+        db.collection('allowed_ids').onSnapshot(snap => {
+            document.getElementById('admDatabaseCount').innerText = snap.size;
+        });
+    }
+
+    async function handleAuth() {
+        initAudio();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        if (!email || !password) return toast("Enter credentials", "error");
+
+        try {
+            if (isSignup) {
+                const cred = await auth.createUserWithEmailAndPassword(email, password);
+                await db.collection('users').doc(cred.user.uid).set({email, role:'pending', createdAt:new Date(), disabled:false});
+                toast("Account created!", "success");
+            } else {
+                await auth.signInWithEmailAndPassword(email, password);
+            }
+        } catch(e) { toast(e.message, "error"); }
+    }
+
+    function toggleAuth() {
+        isSignup = !isSignup;
+        const b = document.getElementById('authBtn');
+        const s = document.getElementById('authSwitch');
+        if (isSignup) { b.innerText = "Create Account"; s.innerText = "Back to Login"; }
+        else { b.innerText = "Authenticate"; s.innerText = "Create New Account"; }
+    }
+
+    async function logout() { stopScanner(); await auth.signOut(); }
+
+    /* =========================================
+       5. DASHBOARD & DATA LOADING
+       ========================================= */
     async function initDashboard(uid) {
         document.querySelectorAll('#adminPanel, #volunteerPanel, #adminMealControl, #volunteerMealDisplay').forEach(el => el.style.display = 'none');
         
@@ -433,232 +390,75 @@
             document.getElementById('volunteerPanel').style.display = 'block';
             document.getElementById('adminMealControl').style.display = 'block';
             loadUsers();
-            db.collection('allowed_ids').onSnapshot(snap => {
-                document.getElementById('admDatabaseCount').innerText = snap.size;
-            });
+            preloadUserData(); // For Admin Scan
         } else if (role === 'volunteer') {
             document.getElementById('volunteerPanel').style.display = 'block';
             document.getElementById('volunteerMealDisplay').style.display = 'flex';
             updateOfflineUI(); 
+            preloadUserData(); // For Volunteer Scan
         }
     }
 
-    /* === 5. SEARCH LOGIC (SPOTLIGHT MODAL) === */
-    function openSearch() {
-        document.getElementById('spotlightOverlay').classList.add('active');
-        document.getElementById('searchInput').focus();
-    }
-
-    function closeSearch() {
-        document.getElementById('spotlightOverlay').classList.remove('active');
-        document.getElementById('searchInput').value = "";
-        document.getElementById('searchResults').innerHTML = `
-            <div class="p-8 text-center text-slate-400 flex flex-col items-center">
-                <i class="ph-duotone ph-identification-card text-4xl mb-2 opacity-50"></i>
-                <p class="text-xs font-bold uppercase tracking-widest">Type Exact ID to Search</p>
-            </div>`;
-    }
-
-    let searchDebounce;
-    function handleSearch(query) {
-        clearTimeout(searchDebounce);
-        const resContainer = document.getElementById('searchResults');
-        
-        // CLEAN QUERY: Uppercase and Remove Spaces for ID match
-        const cleanQuery = query.toUpperCase().trim();
-
-        if(cleanQuery.length < 2) {
-            resContainer.innerHTML = `
-                <div class="p-8 text-center text-slate-400 flex flex-col items-center">
-                    <i class="ph-duotone ph-identification-card text-4xl mb-2 opacity-50"></i>
-                    <p class="text-xs font-bold uppercase tracking-widest">Type Exact ID to Search</p>
-                </div>`;
-            return;
-        }
-
-        resContainer.innerHTML = `<div class="p-8 text-center text-slate-400"><i class="ph-bold ph-spinner animate-spin text-2xl"></i></div>`;
-
-        searchDebounce = setTimeout(async () => {
-            try {
-                // 1. Strict ID Match (Fastest & Best for Check-in)
-                const docRef = db.collection('allowed_ids').doc(cleanQuery);
-                const doc = await docRef.get();
-
-                resContainer.innerHTML = "";
-                
-                if (doc.exists) {
-                    const u = { id: doc.id, ...doc.data() };
-                    resContainer.innerHTML = `
-                        <div onclick="manualServe('${u.id}')" class="p-4 border-b border-slate-100 hover:bg-blue-50 cursor-pointer flex justify-between items-center group transition-colors">
-                            <div>
-                                <div class="font-bold text-slate-800 text-lg">${u.name}</div>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <span class="text-xs font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-600">${u.id}</span>
-                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${u.category || 'Guest'}</span>
-                                </div>
-                            </div>
-                            <div class="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-300 group-hover:bg-[#2A7B9B] group-hover:text-white flex items-center justify-center transition-colors shadow-sm">
-                                <i class="ph-bold ph-check text-xl"></i>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                     resContainer.innerHTML = `
-                        <div class="p-8 text-center text-slate-400 flex flex-col items-center">
-                            <i class="ph-duotone ph-warning-circle text-4xl mb-2 opacity-50 text-red-300"></i>
-                            <p class="text-xs font-bold uppercase tracking-widest text-red-400">ID "${cleanQuery}" Not Found</p>
-                            <p class="text-[10px] mt-2 max-w-[200px]">Ensure the ID matches exactly what was uploaded in the Excel sheet.</p>
-                        </div>`;
-                }
-            } catch(e) {
-                console.error(e);
-                resContainer.innerHTML = `<div class="text-center text-xs font-bold text-red-400 py-4">Connection Error</div>`;
-            }
-        }, 500); 
-    }
-
-    function manualServe(id) {
-        onScan(id); 
-        closeSearch(); 
-    }
-
-    /* === 6. OFFLINE QUEUE === */
-    window.addEventListener('online', processQueue);
-    setInterval(processQueue, 10000); 
-
-    async function robustWrite(id, person, ref, recordKey) {
-        const payload = { 
-            id: id,
-            timestamp: new Date().getTime(),
-            meal: currentMeal,
-            date: getTodayDate(),
-            personName: person.name 
-        };
-
-        if (navigator.onLine) {
-            try {
-                const batch = db.batch();
-                batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: payload.date } } }, { merge: true });
-                batch.set(db.collection('stats').doc('counts'), { [recordKey]: firebase.firestore.FieldValue.increment(1), 'total_scans_ever': firebase.firestore.FieldValue.increment(1) }, { merge: true });
-                await batch.commit();
-                return true; 
-            } catch (e) {
-                console.warn("Write failed, adding to queue", e);
-                addToQueue(payload);
-                return true; 
-            }
-        } else {
-            addToQueue(payload);
-            return true; 
-        }
-    }
-
-    function addToQueue(data) {
-        offlineQueue.push(data);
-        localStorage.setItem('mealQueue', JSON.stringify(offlineQueue));
-        updateOfflineUI();
-        toast("Saved Offline", "info");
-    }
-
-    async function processQueue() {
-        if (!navigator.onLine || offlineQueue.length === 0) return;
-
-        const CHUNK_SIZE = 400;
-        const queueCopy = [...offlineQueue];
-        const chunk = queueCopy.slice(0, CHUNK_SIZE);
-        
-        document.getElementById('queueCount').innerText = "Syncing...";
-        
-        const batch = db.batch();
-        
-        chunk.forEach(item => {
-            const ref = db.collection('meal_records').doc(item.id);
-            const recordKey = `${item.meal}_${item.date}`;
-            
-            batch.set(ref, { 
-                meals: { 
-                    [recordKey]: { 
-                        time: new Date(item.timestamp).toLocaleTimeString(), 
-                        date: item.date 
-                    } 
-                } 
-            }, { merge: true });
-            
-            batch.set(db.collection('stats').doc('counts'), { 
-                [recordKey]: firebase.firestore.FieldValue.increment(1), 
-                'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
-            }, { merge: true });
-        });
-
+    async function preloadUserData() {
+        if(isCacheLoaded) return;
         try {
-            await batch.commit();
-            offlineQueue.splice(0, chunk.length);
-            localStorage.setItem('mealQueue', JSON.stringify(offlineQueue));
-            updateOfflineUI();
-            toast(`Synced ${chunk.length} records`, "success");
-            if(offlineQueue.length > 0) processQueue();
-        } catch (e) {
-            console.error("Sync failed", e);
-        }
+            // DOWNLOAD ONCE: Get all ~875 users so scans are instant
+            const snap = await db.collection('allowed_ids').get();
+            allUsersCache = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            isCacheLoaded = true;
+            console.log("User data loaded for scanning:", allUsersCache.length);
+        } catch(e) { console.error("Cache load failed", e); }
     }
 
-    function updateOfflineUI() {
-        const badge = document.getElementById('offlineBadge');
-        const count = document.getElementById('queueCount');
-        
-        if (offlineQueue.length > 0) {
-            badge.classList.remove('hidden');
-            badge.classList.add('flex');
-            count.innerText = offlineQueue.length;
-        } else {
-            badge.classList.add('hidden');
-            badge.classList.remove('flex');
-        }
-    }
-
-    /* === 7. SCANNER LOGIC === */
+    /* =========================================
+       6. SCANNER & LOGIC
+       ========================================= */
     async function startScanner() {
-        if(scanner || isGlobalLocked) return;
+        if (scanner || isGlobalLocked) return;
         initAudio();
         try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
-
+        
         document.getElementById('startOverlay').classList.add('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.remove('hidden');
-        document.getElementById('scannerLaser').classList.remove('hidden'); 
-        
+        document.getElementById('scannerLaser').classList.remove('hidden');
+
         scanner = new Html5Qrcode("reader");
-        try {
-            await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScan);
-            isScanning = true;
-        } catch(e) { toast("Camera Error: " + e, "error"); stopScanner(); }
+        await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScan);
+        isScanning = true;
     }
 
     async function stopScanner() {
-        if(!scanner) return;
-        try { if(scanner.isScanning) await scanner.stop(); scanner.clear(); } catch(e) { console.log(e); }
+        if (!scanner) return;
+        try { await scanner.stop(); scanner.clear(); } catch (e) {}
         scanner = null;
-        isScanning = false;
-        if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+        if (wakeLock) await wakeLock.release();
+        
         document.getElementById('startOverlay').classList.remove('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.add('hidden');
-        document.getElementById('scannerLaser').classList.add('hidden'); 
+        document.getElementById('scannerLaser').classList.add('hidden');
         document.getElementById('reader').innerHTML = "";
     }
 
     async function onScan(text) {
-        if(isGlobalLocked) { toast("Scanners Paused", "error"); return; }
+        if (isGlobalLocked) return toast("Paused", "error");
+        if (isProcessing) return;
+        
         const id = text.trim().toUpperCase();
-
-        if(isProcessing) return;
-        isProcessing = true; 
-        if(scanner) scanner.pause();
-        document.getElementById('scannerLaser').classList.add('hidden'); 
+        isProcessing = true;
+        if(scanner) { scanner.pause(); document.getElementById('scannerLaser').classList.add('hidden'); }
 
         try {
-            const idDoc = await db.collection('allowed_ids').doc(id).get();
-            if(!idDoc.exists) throw new Error("ID Not Recognized");
-            const person = idDoc.data();
+            // 1. FAST LOCAL CHECK
+            let person = allUsersCache.find(u => u.id === id);
+            
+            // 2. NETWORK FALLBACK (Rare, only if new users added mid-event)
+            if(!person) {
+                const idDoc = await db.collection('allowed_ids').doc(id).get();
+                if(!idDoc.exists) throw new Error("ID Not Recognized");
+                person = idDoc.data();
+            }
 
+            // 3. CHECK DOUBLE DIPPING
             const ref = db.collection('meal_records').doc(id);
             const snap = await ref.get();
             const data = snap.exists ? snap.data().meals || {} : {};
@@ -667,51 +467,55 @@
 
             if(data[recordKey]) {
                 showResult(false, {
-                    title: "ALREADY SERVED",
-                    msg: `Served at ${data[recordKey].time}`,
-                    name: person.name,
-                    cat: person.category || 'Guest',
-                    id: id,
-                    dept: person.department,
-                    info: person.info
+                    title: "ALREADY SERVED", msg: `Served at ${data[recordKey].time}`,
+                    name: person.name, cat: person.category || 'Guest', id: id, dept: person.department, info: person.info
                 });
             } else {
                 await robustWrite(id, person, ref, recordKey);
                 showResult(true, {
-                    title: "ACCESS GRANTED",
-                    msg: "Meal Authorized",
-                    name: person.name,
-                    cat: person.category || 'Guest',
-                    id: id,
-                    dept: person.department,
-                    info: person.info
+                    title: "ACCESS GRANTED", msg: "Meal Authorized",
+                    name: person.name, cat: person.category || 'Guest', id: id, dept: person.department, info: person.info
                 });
             }
-        } catch(e) { 
+
+        } catch (e) {
             showResult(false, {
-                title: "INVALID ID",
-                msg: e.message,
-                name: "Unknown",
-                cat: "Error",
-                id: id,
-                dept: "-",
-                info: "-"
-            }); 
+                title: "INVALID ID", msg: e.message || "Unknown Error",
+                name: "Unknown", cat: "Error", id: id, dept: "-", info: "-"
+            });
+        }
+    }
+    
+    async function robustWrite(id, person, ref, recordKey) {
+        const payload = { 
+            id: id, timestamp: new Date().getTime(), meal: currentMeal, date: getTodayDate(), personName: person.name 
+        };
+
+        if (navigator.onLine) {
+            try {
+                const batch = db.batch();
+                batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: payload.date } } }, { merge: true });
+                batch.set(db.collection('stats').doc('counts'), { [recordKey]: firebase.firestore.FieldValue.increment(1), 'total_scans_ever': firebase.firestore.FieldValue.increment(1) }, { merge: true });
+                await batch.commit();
+            } catch (e) {
+                addToQueue(payload);
+            }
+        } else {
+            addToQueue(payload);
         }
     }
 
-    /* === 8. RESULT CARD === */
+    /* =========================================
+       7. RESULT UI
+       ========================================= */
     function showResult(success, data) {
         const modal = document.getElementById('resultModal');
         const card = document.getElementById('resultCard');
         
         beep(success ? 800 : 200, success ? 'sine' : 'sawtooth');
-
-        const color = success ? 'green' : 'red';
         const icon = success ? 'ph-check-circle' : 'ph-warning-circle';
-        
-        card.className = `bg-white w-80 rounded-[2rem] shadow-2xl transform transition-all duration-300 scale-100 p-0 overflow-hidden border-4 ${success ? 'border-green-500' : 'border-red-500'}`;
 
+        card.className = `bg-white w-80 rounded-[2rem] shadow-2xl transform transition-all duration-300 scale-100 p-0 overflow-hidden border-4 ${success ? 'border-green-500' : 'border-red-500'}`;
         card.innerHTML = `
             <div class="${success ? 'bg-green-50' : 'bg-red-50'} p-6 border-b ${success ? 'border-green-100' : 'border-red-100'} flex items-center gap-4">
                 <div class="w-12 h-12 rounded-full ${success ? 'bg-green-500' : 'bg-red-500'} flex items-center justify-center shrink-0 shadow-md">
@@ -723,34 +527,19 @@
                     <div class="text-[10px] font-bold ${success ? 'text-green-600' : 'text-red-600'} mt-1">${data.msg}</div>
                 </div>
             </div>
-
             <div class="p-6">
                 <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-1">Participant Name</div>
                 <div class="text-2xl font-bold text-slate-800 leading-tight mb-3 break-words">${data.name || 'Unknown'}</div>
-                
                 <div class="flex flex-wrap gap-2 mb-6">
                     <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-mono font-bold border border-slate-200">${data.id}</span>
-                    <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 uppercase">${data.cat}</span>
+                    <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 uppercase">${data.cat || 'N/A'}</span>
                 </div>
-
                 <div class="bg-slate-50 rounded-xl p-3 space-y-2 border border-slate-100">
-                    <div class="flex justify-between items-start">
-                        <span class="text-[10px] font-bold uppercase text-slate-400">Department</span>
-                        <span class="text-xs font-bold text-slate-700 text-right max-w-[60%]">${data.dept || 'N/A'}</span>
-                    </div>
-                    ${data.info ? `
-                    <div class="flex justify-between items-start border-t border-slate-200 pt-2">
-                        <span class="text-[10px] font-bold uppercase text-slate-400">Info/Role</span>
-                        <span class="text-xs font-bold text-slate-900 text-right max-w-[60%]">${data.info}</span>
-                    </div>` : ''}
+                    <div class="flex justify-between items-start"><span class="text-[10px] font-bold uppercase text-slate-400">Department</span><span class="text-xs font-bold text-slate-700 text-right max-w-[60%]">${data.dept || 'N/A'}</span></div>
                 </div>
-
-                <button onclick="closeResult()" class="w-full mt-6 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                    <span>Scan Next</span> <i class="ph-bold ph-arrow-right"></i>
-                </button>
+                <button onclick="closeResult()" class="w-full mt-6 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"><span>Scan Next</span> <i class="ph-bold ph-arrow-right"></i></button>
             </div>
         `;
-
         modal.classList.remove('opacity-0', 'pointer-events-none');
         card.classList.remove('result-anim');
         void card.offsetWidth; 
@@ -760,157 +549,120 @@
     function closeResult() {
         document.getElementById('resultModal').classList.add('opacity-0', 'pointer-events-none');
         isProcessing = false; 
-        if(scanner && !isGlobalLocked) {
-             scanner.resume();
-             document.getElementById('scannerLaser').classList.remove('hidden'); 
-        }
+        if(scanner && !isGlobalLocked) { scanner.resume(); document.getElementById('scannerLaser').classList.remove('hidden'); }
     }
 
-    /* === 9. ADMIN HELPERS === */
-    function updateGlobalLockState(locked) {
-        isGlobalLocked = locked;
-        const bg = document.getElementById('masterLockBg');
-        const icon = document.getElementById('masterLockIcon');
-        const txt = document.getElementById('masterLockText');
-        if(locked) {
-            bg.className = "absolute inset-0 bg-red-100 transition-colors duration-500";
-            icon.className = "ph-fill ph-lock-key text-red-600 text-2xl relative z-10 transition-all duration-300 scale-110";
-            txt.innerText = "All Locked"; 
-            txt.className = "text-[10px] font-bold text-red-700 uppercase tracking-wider relative z-10";
-            document.getElementById('adminLockOverlay').classList.remove('hidden');
-        } else {
-            bg.className = "absolute inset-0 bg-green-100/50 transition-colors duration-500";
-            icon.className = "ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all duration-300 scale-100";
-            txt.innerText = "Scanners Active"; 
-            txt.className = "text-[10px] font-bold text-green-700 uppercase tracking-wider relative z-10";
-            document.getElementById('adminLockOverlay').classList.add('hidden');
-        }
+    /* =========================================
+       8. SYNC & UPLOAD
+       ========================================= */
+    function addToQueue(data) { offlineQueue.push(data); localStorage.setItem('mealQueue', JSON.stringify(offlineQueue)); updateOfflineUI(); toast("Saved Offline", "info"); }
+    
+    async function processQueue() {
+        if (!navigator.onLine || offlineQueue.length === 0) return;
+        document.getElementById('queueCount').innerText = "Syncing...";
+        const chunk = offlineQueue.slice(0, 400); // 400 Batch limit
+        const batch = db.batch();
+        
+        chunk.forEach(item => {
+            const ref = db.collection('meal_records').doc(item.id);
+            const k = `${item.meal}_${item.date}`;
+            batch.set(ref, { meals: { [k]: { time: new Date(item.timestamp).toLocaleTimeString(), date: item.date } } }, { merge: true });
+            batch.set(db.collection('stats').doc('counts'), { [k]: firebase.firestore.FieldValue.increment(1), 'total_scans_ever': firebase.firestore.FieldValue.increment(1) }, { merge: true });
+        });
+
+        try { await batch.commit(); offlineQueue.splice(0, chunk.length); localStorage.setItem('mealQueue', JSON.stringify(offlineQueue)); updateOfflineUI(); toast("Synced Data", "success"); if(offlineQueue.length>0) processQueue(); }
+        catch (e) { console.error(e); }
     }
 
-    function toggleGlobalLock() {
-        const newState = !isGlobalLocked;
-        db.collection('settings').doc('global').set({ scannerLocked: newState }, { merge: true })
-            .then(() => toast(newState ? "All Scanners Locked" : "All Scanners Unlocked", newState ? "error" : "success"));
+    function updateOfflineUI() {
+        const badge = document.getElementById('offlineBadge');
+        if (offlineQueue.length > 0) { badge.classList.remove('hidden'); badge.classList.add('flex'); document.getElementById('queueCount').innerText = offlineQueue.length; } 
+        else { badge.classList.add('hidden'); badge.classList.remove('flex'); }
+    }
+
+    // EXCEL UPLOAD
+    function uploadExcel(input) {
+        if(!input.files[0]) return;
+        const r = new FileReader();
+        toast("Processing...", "info");
+        r.onload = async e => {
+            const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+            const batch = db.batch();
+            let count = 0;
+            rows.forEach((row, i) => {
+                if(i===0 || !row[0]) return;
+                const id = String(row[0]).trim().toUpperCase();
+                if(id) {
+                    batch.set(db.collection('allowed_ids').doc(id), { active: true, category: row[1]||"Guest", name: row[2]||"Unknown", department: row[3]||"N/A", info: row[4]||"", importedAt: new Date() });
+                    count++;
+                }
+            });
+            await batch.commit();
+            toast(`Imported ${count} IDs`, "success");
+            preloadUserData(); // Reload cache
+        };
+        r.readAsArrayBuffer(input.files[0]);
     }
     
-    function updateLocalMealState(meal) {
-        currentMeal = meal;
-        if(document.getElementById('mealLabel')) document.getElementById('mealLabel').innerText = meal;
-        if(document.getElementById('lockedMealLabel')) document.getElementById('lockedMealLabel').innerText = meal;
+    // EXPORT
+    async function downloadDailyReport() {
+        toast("Generating Log...", "info"); 
+        const today = getTodayDate(); 
+        const s = await db.collection('meal_records').get(); 
+        const rows = []; 
+        s.forEach(d => { 
+            const m = d.data().meals || {}; 
+            Object.keys(m).forEach(k => { 
+                const p=k.split('_'); 
+                if(p[1]===today) rows.push({ ID: d.id, Meal: p[0], Time: m[k].time }); 
+            }); 
+        }); 
+        const ws = XLSX.utils.json_to_sheet(rows); 
+        const wb = XLSX.utils.book_new(); 
+        XLSX.utils.book_append_sheet(wb, ws, "Logs"); 
+        XLSX.writeFile(wb, `Report_${today}.xlsx`); 
+        toast("Downloaded", "success"); 
+    }
+
+    // UI Helpers
+    function toggleDropdown(e) { e.stopPropagation(); document.getElementById('dropdownMenu').classList.toggle('hidden'); }
+    function closeDropdown(e) { if(!document.getElementById('dropdownMenu').contains(e.target)) document.getElementById('dropdownMenu').classList.add('hidden'); }
+    function adminSetGlobalMeal(val) { db.collection('settings').doc('global').set({currentMeal: val}, {merge: true}).then(() => toast("Session Updated", "success")); closeDropdown({target: document.body}); }
+    function toggleGlobalLock() { 
+        db.collection('settings').doc('global').set({ scannerLocked: !isGlobalLocked }, { merge: true })
+        .then(() => toast(!isGlobalLocked ? "All Scanners Locked" : "Unlocked", !isGlobalLocked ? "error" : "success")); 
+    }
+    function updateLocalMealState(meal) { 
+        currentMeal = meal; 
+        document.getElementById('mealLabel').innerText = meal; 
+        document.getElementById('lockedMealLabel').innerText = meal; 
         let iconClass = 'ph-coffee'; let colorClass = 'text-orange-500';
         if(meal==='Lunch') { iconClass='ph-hamburger'; colorClass='text-red-500'; }
         if(meal==='Dinner') { iconClass='ph-moon-stars'; colorClass='text-indigo-500'; }
         if(meal==='Snacks') { iconClass='ph-cookie'; colorClass='text-amber-500'; }
-        if(document.getElementById('mealIconDisplay')) document.getElementById('mealIconDisplay').parentElement.innerHTML = `<i id="mealIconDisplay" class="ph-fill ${iconClass} text-xl ${colorClass}"></i>`;
+        document.getElementById('mealIconDisplay').parentElement.innerHTML = `<i id="mealIconDisplay" class="ph-fill ${iconClass} text-xl ${colorClass}"></i>`;
     }
-
-    function adminSetGlobalMeal(val) {
-        db.collection('settings').doc('global').set({currentMeal: val}, {merge: true}).then(() => toast("Session Updated", "success"));
-        closeDropdown({target: document.body});
+    function updateGlobalLockState(locked) {
+        isGlobalLocked = locked;
+        const txt = document.getElementById('masterLockText');
+        if(locked) { document.getElementById('adminLockOverlay').classList.remove('hidden'); txt.innerText = "All Locked"; document.getElementById('masterLockBg').className = "absolute inset-0 bg-red-100 transition-colors duration-500"; }
+        else { document.getElementById('adminLockOverlay').classList.add('hidden'); txt.innerText = "Scanners Active"; document.getElementById('masterLockBg').className = "absolute inset-0 bg-green-100/50 transition-colors duration-500"; }
     }
-
-    /* === 10. IMPORT/EXPORT/USER MGMT === */
     function loadUsers() { 
-        const l = document.getElementById('userList'); 
-        l.innerHTML = ""; 
+        const l = document.getElementById('userList'); l.innerHTML = ""; 
         db.collection('users').orderBy('createdAt').get().then(s => { 
             s.forEach(d => { 
-                const u = d.data(); 
-                if(u.disabled) return; 
-                const isMe = auth.currentUser.uid === d.id; 
-                const isAdmin = u.role === 'admin';
+                const u = d.data(); if(u.disabled) return; 
+                const isMe = auth.currentUser.uid === d.id; const isAdmin = u.role === 'admin';
                 const avatarBg = isAdmin ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600';
-                const firstLetter = u.email.charAt(0).toUpperCase();
-
-                l.innerHTML += `
-                <div class="glass p-3 rounded-2xl flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0">${firstLetter}</div>
-                    <div class="flex-1 overflow-hidden">
-                        <div class="text-xs font-bold text-slate-800 truncate">${u.email}</div>
-                        <div class="flex items-center gap-1 mt-0.5">
-                            <span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isAdmin ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}">${u.role}</span>
-                            ${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}
-                        </div>
-                    </div>
-                    ${!isMe ? `<div class="flex gap-1 shrink-0">${isAdmin ? `<button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-orange-100 hover:text-orange-500 flex items-center justify-center"><i class="ph-bold ph-arrow-down"></i></button>` : `<button onclick="setRole('${d.id}','admin')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-blue-100 hover:text-blue-500 flex items-center justify-center"><i class="ph-bold ph-arrow-up"></i></button>`}<button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>` : ''}
-                </div>`;
+                l.innerHTML += `<div class="glass p-3 rounded-2xl flex items-center gap-3"><div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0">${u.email.charAt(0).toUpperCase()}</div><div class="flex-1 overflow-hidden"><div class="text-xs font-bold text-slate-800 truncate">${u.email}</div><div class="flex items-center gap-1 mt-0.5"><span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isAdmin ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}">${u.role}</span>${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}</div></div>${!isMe ? `<div class="flex gap-1 shrink-0">${isAdmin ? `<button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-orange-100 hover:text-orange-500 flex items-center justify-center"><i class="ph-bold ph-arrow-down"></i></button>` : `<button onclick="setRole('${d.id}','admin')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-blue-100 hover:text-blue-500 flex items-center justify-center"><i class="ph-bold ph-arrow-up"></i></button>`}<button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>` : ''}</div>`;
             }); 
         }); 
     }
-    
     function setRole(id, r) { db.collection('users').doc(id).update({role:r}).then(loadUsers); }
-    function delUser(id) { if(confirm("Revoke access for this user?")) db.collection('users').doc(id).update({disabled: true}).then(loadUsers); }
-    
-    function uploadExcel(input) { 
-        if(!input.files[0]) return; 
-        const r = new FileReader(); 
-        toast("Processing...", "info"); 
-        r.onload = async e => { 
-            try { 
-                const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'}); 
-                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1}); 
-                const batch = db.batch(); 
-                let count = 0; 
-                rows.forEach((row, index) => { 
-                    if (index === 0 || !row[0]) return; 
-                    const id = String(row[0]).trim().toUpperCase();
-                    if(id) {
-                        const docRef = db.collection('allowed_ids').doc(id);
-                        batch.set(docRef, { active: true, category: row[1]||"Guest", name: row[2]||"Unknown", department: row[3]||"N/A", info: row[4]||"", importedAt: new Date() }); 
-                        count++; 
-                    }
-                }); 
-                await batch.commit(); 
-                toast(`${count} IDs Imported`, "success"); 
-            } catch(e) { toast("Error reading file", "error"); } 
-        }; 
-        r.readAsArrayBuffer(input.files[0]); 
-    }
+    function delUser(id) { if(confirm("Revoke?")) db.collection('users').doc(id).update({disabled: true}).then(loadUsers); }
 
-    function toggleExportMenu() { const m = document.getElementById('exportMenu'); m.classList.toggle('hidden'); m.classList.toggle('flex'); }
-    async function downloadMasterReport() { toast("Generating Log...", "info"); toggleExportMenu(); const s = await db.collection('meal_records').get(); const rows = []; s.forEach(d => { const m = d.data().meals || {}; Object.keys(m).forEach(k => { const p=k.split('_'); rows.push({ ID: d.id, Meal: p[0], Date: p[1], Time: m[k].time }); }); }); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Logs"); XLSX.writeFile(wb, "Master_Report.xlsx"); }
-    async function downloadDailyReport() { toast("Generating Log...", "info"); toggleExportMenu(); const today = getTodayDate(); const s = await db.collection('meal_records').get(); const rows = []; s.forEach(d => { const m = d.data().meals || {}; Object.keys(m).forEach(k => { const p=k.split('_'); if(p[1]===today) rows.push({ ID: d.id, Meal: p[0], Time: m[k].time }); }); }); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Logs"); XLSX.writeFile(wb, `Report_${today}.xlsx`); toast("Downloaded", "success"); }
-
-    /* === 11. GENERAL UI === */
-    function toggleDropdown(e) { e.stopPropagation(); const m = document.getElementById('dropdownMenu'); const a = document.getElementById('dropdownArrow'); if (m.classList.contains('hidden')) { m.classList.remove('hidden'); m.classList.add('flex', 'menu-anim'); a.style.transform = "rotate(180deg)"; } else { m.classList.add('hidden'); m.classList.remove('flex', 'menu-anim'); a.style.transform = "rotate(0deg)"; } }
-    function closeDropdown(e) { const m = document.getElementById('dropdownMenu'); const t = document.getElementById('dropdownTrigger'); if (m && t && !m.contains(e.target) && !t.contains(e.target)) { m.classList.add('hidden'); m.classList.remove('flex', 'menu-anim'); document.getElementById('dropdownArrow').style.transform = "rotate(0deg)"; } }
-    
-    function toggleAuth() { 
-        initAudio();
-        isSignup = !isSignup; 
-        const b = document.getElementById('authBtn'); 
-        const s = document.getElementById('authSwitch'); 
-        const sub = document.getElementById('authSub'); 
-        if(isSignup) { b.innerHTML = `<span>Create Account</span> <i class="ph-bold ph-user-plus"></i>`; s.innerText = "Back to Login"; sub.innerText = "Register Staff Access"; } 
-        else { b.innerHTML = `<span>Authenticate</span> <i class="ph-bold ph-arrow-right"></i>`; s.innerText = "Create New Account"; sub.innerText = "Sign in to access terminal"; } 
-    }
-    
-    function handleAuth() { 
-        initAudio(); 
-        const e = document.getElementById('loginEmail').value; 
-        const p = document.getElementById('loginPassword').value; 
-        if(!e || !p) return toast("Enter credentials", "error"); 
-        if(isSignup) { auth.createUserWithEmailAndPassword(e, p).then(c => db.collection('users').doc(c.user.uid).set({email:e, role:'pending', createdAt:new Date(), disabled:false})).then(() => toast("Account created!", "success")).catch(err => toast(err.message, "error")); } 
-        else { auth.signInWithEmailAndPassword(e, p).catch(err => toast(err.message, "error")); } 
-    }
-    
-    function logout() { stopScanner(); auth.signOut(); }
-    function toast(msg, type) { const t = document.getElementById('toast'); const dot = document.getElementById('toastDot'); document.getElementById('toastMsg').innerText = msg; dot.className = type==='error'?"w-2 h-2 rounded-full bg-red-500":"w-2 h-2 rounded-full bg-green-400"; t.style.transform = "translate(-50%, 0)"; setTimeout(() => t.style.transform = "translate(-50%, -150px)", 3000); }
-    
-    function beep(freq, type) { 
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-        if (audioCtx.state === 'suspended') audioCtx.resume(); 
-        const osc = audioCtx.createOscillator(); 
-        const g = audioCtx.createGain(); 
-        osc.connect(g); 
-        g.connect(audioCtx.destination); 
-        osc.frequency.value = freq; 
-        osc.type = type; 
-        g.gain.setValueAtTime(0.1, audioCtx.currentTime); 
-        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2); 
-        osc.start(); 
-        osc.stop(audioCtx.currentTime + 0.2); 
-    }
 </script>
 </body>
 </html>
