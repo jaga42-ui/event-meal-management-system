@@ -184,28 +184,32 @@
                     </div>
 
                     <div id="startOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-md z-10">
-                        <button onclick="startScanner()" class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.4)] ring-anim hover:scale-105 transition-transform">
+                        <button onclick="startScanner()" class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.4)] ring-anim hover:scale-105 transition-transform active:scale-95">
                             <i class="ph-fill ph-camera text-3xl text-[#2480D1]"></i>
                         </button>
                         <p class="mt-5 text-xs font-bold text-white uppercase tracking-widest">Tap to Activate</p>
                     </div>
                 </div>
                 
-                <button id="stopBtn" onclick="stopScanner()" class="hidden w-full py-4 glass text-red-500 font-bold rounded-2xl shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2">
+                <button id="stopBtn" onclick="stopScanner()" class="hidden w-full py-4 glass text-red-500 font-bold rounded-2xl shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2 active:scale-95">
                     <i class="ph-bold ph-stop-circle text-xl"></i><span>Stop Camera</span>
                 </button>
 
-                <div class="glass p-4 rounded-[2rem] space-y-3">
-                    <div class="flex items-center gap-3 border-b border-slate-200/50 pb-2">
-                        <i class="ph-bold ph-magnifying-glass text-slate-400 text-xl"></i>
-                        <input oninput="handleSearch(this.value)" id="searchInput" type="text" placeholder="Search Name or ID..." class="bg-transparent w-full text-slate-700 font-bold focus:outline-none placeholder:text-slate-400/70 placeholder:font-medium">
-                        <button onclick="clearSearch()" id="clearSearchBtn" class="hidden text-slate-400 hover:text-red-500"><i class="ph-fill ph-x-circle"></i></button>
+                <div class="glass p-4 rounded-[2rem] relative z-40">
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="ph-bold ph-magnifying-glass text-slate-400 text-xl group-focus-within:text-[#2A7B9B] transition-colors"></i>
+                        </div>
+                        <input oninput="handleSearch(this.value)" id="searchInput" type="text" placeholder="Search Name or ID..." class="block w-full pl-11 pr-10 py-4 bg-slate-50 border-2 border-transparent focus:border-[#2A7B9B]/30 rounded-2xl text-slate-800 font-bold placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-0 transition-all shadow-inner">
+                        <button onclick="clearSearch()" id="clearSearchBtn" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-red-500 hover:scale-110 transition-all cursor-pointer">
+                            <i class="ph-fill ph-x-circle text-xl"></i>
+                        </button>
                     </div>
                     
-                    <div id="searchResults" class="hidden flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
-                        </div>
+                    <div id="searchResults" class="hidden mt-2 flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar relative z-50">
+                    </div>
                 </div>
-            </div>
+                </div>
 
             <div id="adminPanel" class="hidden space-y-4 anim-enter delay-200">
                 <div class="glass-dark p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
@@ -241,12 +245,12 @@
                 </div>
 
                 <div class="grid grid-cols-4 gap-3 relative z-20">
-                    <button onclick="document.getElementById('excelInput').click()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square">
+                    <button onclick="document.getElementById('excelInput').click()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square hover:scale-105 active:scale-95">
                         <i class="ph-fill ph-microsoft-excel-logo text-green-600 text-2xl group-hover:scale-110 transition-transform"></i>
                         <input type="file" id="excelInput" accept=".xlsx" class="hidden" onchange="uploadExcel(this)">
                     </button>
 
-                    <div onclick="toggleExportMenu()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer">
+                    <div onclick="toggleExportMenu()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer hover:scale-105 active:scale-95">
                         <i class="ph-fill ph-download-simple text-blue-600 text-2xl group-hover:scale-110 transition-transform"></i>
                         
                         <div id="exportMenu" onclick="event.stopPropagation()" class="hidden absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl p-2 z-[60] flex-col gap-1 border border-slate-100 cursor-default">
@@ -259,9 +263,9 @@
                         </div>
                     </div>
 
-                    <button onclick="toggleGlobalLock()" id="masterLockBtn" class="col-span-2 glass p-3 rounded-3xl flex flex-col items-center justify-center gap-1 transition-all group relative overflow-hidden">
+                    <button onclick="toggleGlobalLock()" id="masterLockBtn" class="col-span-2 glass p-3 rounded-3xl flex flex-col items-center justify-center gap-1 transition-all group relative overflow-hidden hover:scale-[1.02] active:scale-[0.98]">
                         <div id="masterLockBg" class="absolute inset-0 bg-green-100/50 transition-colors duration-500"></div>
-                        <i id="masterLockIcon" class="ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all"></i>
+                        <i id="masterLockIcon" class="ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all duration-300"></i>
                         <span id="masterLockText" class="text-[10px] font-bold text-green-700 uppercase tracking-wider relative z-10">Scanners Active</span>
                     </button>
                 </div>
@@ -269,7 +273,7 @@
                 <div class="glass rounded-[2.5rem] p-6 relative z-0">
                     <div class="flex justify-between items-center mb-4 border-b border-slate-200/50 pb-3">
                         <span class="font-bold text-slate-700">Team Management</span>
-                        <button onclick="loadUsers()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-[#2480D1] flex items-center justify-center transition-colors"><i class="ph-bold ph-arrows-clockwise"></i></button>
+                        <button onclick="loadUsers()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-[#2480D1] flex items-center justify-center transition-colors hover:rotate-90 duration-500"><i class="ph-bold ph-arrows-clockwise"></i></button>
                     </div>
                     <div id="userList" class="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar"></div>
                 </div>
@@ -406,12 +410,14 @@
         
         if(!query || query.length < 2) {
             resContainer.classList.add('hidden');
+            resContainer.classList.remove('flex');
             clearBtn.classList.add('hidden');
             return;
         }
 
         clearBtn.classList.remove('hidden');
         resContainer.classList.remove('hidden');
+        resContainer.classList.add('flex');
         resContainer.innerHTML = "";
 
         const q = query.toLowerCase();
@@ -701,13 +707,15 @@
         const txt = document.getElementById('masterLockText');
         if(locked) {
             bg.className = "absolute inset-0 bg-red-100 transition-colors duration-500";
-            icon.className = "ph-fill ph-lock-key text-red-600 text-2xl relative z-10 transition-all";
-            txt.innerText = "All Locked"; txt.className = "text-[10px] font-bold text-red-700 uppercase tracking-wider relative z-10";
+            icon.className = "ph-fill ph-lock-key text-red-600 text-2xl relative z-10 transition-all duration-300 scale-110";
+            txt.innerText = "All Locked"; 
+            txt.className = "text-[10px] font-bold text-red-700 uppercase tracking-wider relative z-10";
             document.getElementById('adminLockOverlay').classList.remove('hidden');
         } else {
             bg.className = "absolute inset-0 bg-green-100/50 transition-colors duration-500";
-            icon.className = "ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all";
-            txt.innerText = "Scanners Active"; txt.className = "text-[10px] font-bold text-green-700 uppercase tracking-wider relative z-10";
+            icon.className = "ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all duration-300 scale-100";
+            txt.innerText = "Scanners Active"; 
+            txt.className = "text-[10px] font-bold text-green-700 uppercase tracking-wider relative z-10";
             document.getElementById('adminLockOverlay').classList.add('hidden');
         }
     }
