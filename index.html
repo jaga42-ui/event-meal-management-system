@@ -14,7 +14,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.min.js"></script>
 
     <style>
         body { font-family: 'Outfit', sans-serif; overflow: hidden; }
@@ -194,7 +194,16 @@
                         <p class="mt-5 text-xs font-bold text-white uppercase tracking-widest">Tap to Activate</p>
                     </div>
                 </div>
-                <button id="stopBtn" onclick="stopScanner()" class="hidden w-full h-16 glass text-red-500 font-bold rounded-[1.5rem] shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2 active:scale-95"><i class="ph-bold ph-stop-circle text-xl"></i><span>Stop Camera</span></button>
+
+                <div class="grid grid-cols-5 gap-3">
+                    <button onclick="toggleSearch()" class="col-span-1 h-16 glass rounded-[1.5rem] text-[#2A7B9B] flex items-center justify-center shadow-sm hover:bg-white transition-all active:scale-95">
+                        <i class="ph-bold ph-magnifying-glass text-2xl"></i>
+                    </button>
+                    <button id="stopBtn" onclick="stopScanner()" class="hidden col-span-4 h-16 glass text-red-500 font-bold rounded-[1.5rem] shadow-sm hover:bg-white transition-colors flex items-center justify-center gap-2 active:scale-95">
+                        <i class="ph-bold ph-stop-circle text-xl"></i>
+                        <span>Stop Camera</span>
+                    </button>
+                </div>
             </div>
 
             <div id="adminPanel" class="hidden space-y-4 anim-enter delay-200">
@@ -218,24 +227,28 @@
                 </div>
 
                 <div class="grid grid-cols-4 gap-3 relative z-20">
-                    <button onclick="document.getElementById('excelInput').click()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square hover:scale-105 active:scale-95">
+                    <button onclick="toggleModal('addUserModal')" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square hover:scale-105 active:scale-95 cursor-pointer">
+                        <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="ph-bold ph-user-plus text-purple-600 text-xl"></i>
+                        </div>
+                        <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Add New</span>
+                    </button>
+
+                    <button onclick="document.getElementById('excelInput').click()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square hover:scale-105 active:scale-95 cursor-pointer">
                         <i class="ph-fill ph-microsoft-excel-logo text-green-600 text-2xl group-hover:scale-110 transition-transform"></i>
                         <input type="file" id="excelInput" accept=".xlsx" class="hidden" onchange="uploadExcel(this)">
                     </button>
                     
                     <div class="relative">
-                        <button onclick="toggleDropdown(event, 'downloadMenu')" class="w-full glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer hover:scale-105 active:scale-95">
+                        <button onclick="toggleDropdown(event, 'downloadMenu')" class="w-full h-full glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer hover:scale-105 active:scale-95">
                             <i class="ph-fill ph-download-simple text-blue-600 text-2xl group-hover:scale-110 transition-transform"></i>
                         </button>
-                        
                         <div id="downloadMenu" class="hidden absolute top-full left-0 mt-2 w-48 glass rounded-[2rem] p-2 shadow-2xl origin-top z-50 flex-col gap-1 border-2 border-blue-100">
                              <div class="px-4 py-2 text-[10px] font-bold text-blue-400 uppercase tracking-widest text-center">Export</div>
-                             
                              <button onclick="downloadDailyReport()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
                                 <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-file-text text-blue-500"></i></div>
                                 <div><span class="font-bold text-slate-700 text-xs block">Scan Logs</span></div>
                              </button>
-
                              <button onclick="exportMasterList()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
                                 <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-users text-blue-500"></i></div>
                                 <div><span class="font-bold text-slate-700 text-xs block">Master List</span></div>
@@ -243,10 +256,9 @@
                         </div>
                     </div>
                     
-                    <button onclick="toggleGlobalLock()" id="masterLockBtn" class="col-span-2 glass p-3 rounded-3xl flex flex-col items-center justify-center gap-1 transition-all group relative overflow-hidden hover:scale-[1.02] active:scale-[0.98]">
+                    <button onclick="toggleGlobalLock()" id="masterLockBtn" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 transition-all group relative overflow-hidden hover:scale-[1.02] active:scale-[0.98]">
                         <div id="masterLockBg" class="absolute inset-0 bg-green-100/50 transition-colors duration-500"></div>
                         <i id="masterLockIcon" class="ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all duration-300"></i>
-                        <span id="masterLockText" class="text-[10px] font-bold text-green-700 uppercase tracking-wider relative z-10">Scanners Active</span>
                     </button>
 
                     <div class="col-span-4 relative">
@@ -260,7 +272,6 @@
                         
                         <div id="dangerMenu" class="hidden absolute top-full left-0 right-0 mt-2 glass rounded-[2rem] p-2 shadow-2xl origin-top z-50 flex-col gap-1 border-2 border-red-100">
                              <div class="px-4 py-2 text-[10px] font-bold text-red-400 uppercase tracking-widest text-center">Select Action</div>
-                             
                              <button onclick="clearDatabase('scans')" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-4 text-left group">
                                 <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><i class="ph-fill ph-clock-counter-clockwise text-red-500 text-lg"></i></div>
                                 <div>
@@ -268,7 +279,6 @@
                                     <span class="text-[10px] text-slate-400 font-bold">Resets meal counters only</span>
                                 </div>
                              </button>
-
                              <button onclick="clearDatabase('users')" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-4 text-left group">
                                 <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><i class="ph-fill ph-users-three text-red-500 text-lg"></i></div>
                                 <div>
@@ -276,7 +286,6 @@
                                     <span class="text-[10px] text-slate-400 font-bold">Deletes all ID data</span>
                                 </div>
                              </button>
-
                              <button onclick="clearDatabase('all')" class="w-full p-3 bg-red-500 hover:bg-red-600 rounded-2xl flex items-center gap-4 text-left mt-1 shadow-md">
                                 <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center"><i class="ph-fill ph-warning text-white text-lg"></i></div>
                                 <div>
@@ -301,6 +310,67 @@
 
     <div id="resultModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
         <div id="resultCard" class="bg-white w-80 rounded-[2.5rem] overflow-hidden shadow-2xl transform transition-all duration-300 scale-95 p-6 border-4"></div>
+    </div>
+
+    <div id="searchModal" class="fixed inset-0 z-[150] flex flex-col bg-slate-900/90 backdrop-blur-md hidden transition-opacity duration-300">
+        <div class="p-6 pb-2 flex items-center justify-between">
+            <h2 class="text-white font-bold text-lg">Manual Lookup</h2>
+            <button onclick="toggleSearch()" class="w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"><i class="ph-bold ph-x"></i></button>
+        </div>
+        <div class="px-6 pb-4">
+            <div class="relative">
+                <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" id="manualSearchInput" onkeyup="handleSearch(this.value)" class="w-full bg-white rounded-2xl py-4 pl-12 pr-4 font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-[#2A7B9B]/50 placeholder:text-slate-400" placeholder="Type Name or ID..." autocomplete="off">
+            </div>
+        </div>
+        <div id="searchResults" class="flex-1 overflow-y-auto px-6 pb-20 space-y-2 custom-scrollbar">
+            <div class="text-center mt-10 opacity-50 text-white text-sm font-medium">Start typing to find participants...</div>
+        </div>
+    </div>
+
+    <div id="addUserModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-md hidden transition-opacity">
+        <div class="bg-white w-80 rounded-[2rem] shadow-2xl p-6 relative">
+            <button onclick="toggleModal('addUserModal')" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-slate-200"><i class="ph-bold ph-x"></i></button>
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 mx-auto bg-purple-100 rounded-2xl flex items-center justify-center mb-3">
+                    <i class="ph-duotone ph-user-plus text-3xl text-purple-600"></i>
+                </div>
+                <h3 class="font-bold text-xl text-slate-800">Add Participant</h3>
+                <p class="text-xs text-slate-500 font-medium">Late registration entry</p>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Unique ID (Required)</label>
+                    <input id="newUserId" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 outline-none uppercase" placeholder="UTS26V...">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Full Name</label>
+                    <input id="newUserName" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Name">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Category</label>
+                        <select id="newUserCat" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 font-bold text-xs text-slate-800 outline-none">
+                            <option value="Volunteer">Volunteer</option>
+                            <option value="Participants">Participants</option>
+                            <option value="Team Manager">Team Manager</option>
+                            <option value="Professional Accompanist">Prof. Accompanist</option>
+                            <option value="Student Accompanist">Student Accomp.</option>
+                            <option value="DSW">DSW</option>
+                            <option value="Extra">Extra</option>
+                            <option value="Guest">Guest</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Dept / Org</label>
+                        <input id="newUserDept" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 font-bold text-xs text-slate-800 outline-none" placeholder="Department">
+                    </div>
+                </div>
+            </div>
+            <button onclick="saveManualUser()" class="w-full mt-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg shadow-purple-200 active:scale-95 transition-all">
+                Save & Sync
+            </button>
+        </div>
     </div>
 
 <script>
@@ -332,7 +402,6 @@
     let allUsersCache = [];
     let isCacheLoaded = false;
     
-    // CHANGED: Use a Map so we can store timestamps!
     const localSessionCache = new Map(); 
 
     // Helper: Timeout for network requests to prevent hanging
@@ -500,12 +569,12 @@
             const snap = await db.collection('allowed_ids').get();
             allUsersCache = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             isCacheLoaded = true;
-            console.log("User data loaded for scanning:", allUsersCache.length);
+            console.log("User data loaded:", allUsersCache.length);
         } catch(e) { console.error("Cache load failed", e); }
     }
 
     /* =========================================
-       6. SCANNER LOGIC (BULLETPROOF)
+       6. SCANNER LOGIC
        ========================================= */
     async function startScanner() {
         if (scanner || isGlobalLocked) return;
@@ -551,7 +620,6 @@
         let isOfflineMode = !navigator.onLine;
 
         try {
-            // FIXED: CHECK LOCAL MAP FOR TIME
             if (localSessionCache.has(`${id}_${recordKey}`)) {
                 const cachedTime = localSessionCache.get(`${id}_${recordKey}`);
                 const cachedUser = allUsersCache.find(u => u.id === id) || {};
@@ -582,7 +650,6 @@
             }
 
             // SUCCESSFUL SCAN
-            // SAVE TIME TO LOCAL CACHE IMMEDIATELY
             const nowTime = new Date().toLocaleTimeString();
             localSessionCache.set(`${id}_${recordKey}`, nowTime);
 
@@ -680,7 +747,112 @@
     }
 
     /* =========================================
-       8. SYNC & QUEUE
+       8. MANUAL SEARCH & ADD USER
+       ========================================= */
+    function toggleSearch() {
+        const modal = document.getElementById('searchModal');
+        const input = document.getElementById('manualSearchInput');
+        const isHidden = modal.classList.contains('hidden');
+
+        if (isHidden) {
+            modal.classList.remove('hidden');
+            input.value = '';
+            document.getElementById('searchResults').innerHTML = '<div class="text-center mt-10 opacity-50 text-white text-sm font-medium">Start typing to find participants...</div>';
+            setTimeout(() => input.focus(), 100);
+            if (scanner && isScanning) { scanner.pause(); document.getElementById('scannerLaser').classList.add('hidden'); }
+        } else {
+            modal.classList.add('hidden');
+            if (scanner && isScanning && !isGlobalLocked && !isProcessing) { scanner.resume(); document.getElementById('scannerLaser').classList.remove('hidden'); }
+        }
+    }
+
+    function handleSearch(query) {
+        const list = document.getElementById('searchResults');
+        const q = query.toLowerCase().trim();
+
+        if (q.length < 2) {
+            list.innerHTML = '<div class="text-center mt-10 opacity-50 text-white text-sm font-medium">Type at least 2 characters</div>';
+            return;
+        }
+
+        const matches = allUsersCache.filter(u => 
+            (u.name && u.name.toLowerCase().includes(q)) || 
+            (u.id && u.id.toLowerCase().includes(q))
+        ).slice(0, 20);
+
+        if (matches.length === 0) {
+            list.innerHTML = `<div class="text-center mt-10 flex flex-col items-center opacity-60"><i class="ph-duotone ph-ghost text-4xl text-white mb-2"></i><span class="text-white text-sm font-medium">No matches found</span></div>`;
+            return;
+        }
+
+        list.innerHTML = matches.map(u => `
+            <button onclick="manualSelect('${u.id}')" class="w-full bg-white/10 hover:bg-white/20 border border-white/5 p-4 rounded-2xl flex items-center justify-between text-left transition-all active:scale-95 group">
+                <div>
+                    <div class="text-white font-bold text-lg leading-tight group-hover:text-cyan-300 transition-colors">${u.name || 'Unknown'}</div>
+                    <div class="text-xs text-slate-400 font-mono mt-1 flex flex-wrap gap-2">
+                        <span class="bg-black/30 px-1.5 rounded">${u.id}</span>
+                        <span class="uppercase opacity-75 text-cyan-200">${u.category || 'Guest'}</span>
+                    </div>
+                    <div class="text-[10px] text-slate-500 mt-0.5 truncate max-w-[200px]">${u.department}</div>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white group-hover:bg-[#57C785] transition-colors shrink-0">
+                    <i class="ph-bold ph-check"></i>
+                </div>
+            </button>
+        `).join('');
+    }
+
+    function manualSelect(id) {
+        toggleSearch();
+        onScan(id);
+    }
+
+    function toggleModal(id) {
+        const el = document.getElementById(id);
+        el.classList.toggle('hidden');
+        if(!el.classList.contains('hidden')) {
+            document.getElementById('newUserId').value = "";
+            document.getElementById('newUserName').value = "";
+            document.getElementById('newUserDept').value = "";
+        }
+    }
+
+    async function saveManualUser() {
+        const id = document.getElementById('newUserId').value.trim().toUpperCase();
+        const name = document.getElementById('newUserName').value.trim();
+        const cat = document.getElementById('newUserCat').value;
+        const dept = document.getElementById('newUserDept').value.trim() || "N/A";
+
+        if (!id) return toast("ID is required", "error");
+        if (!name) return toast("Name is required", "error");
+
+        if (allUsersCache.find(u => u.id === id)) return toast("ID already exists!", "error");
+
+        toast("Saving...", "info");
+
+        try {
+            const userData = {
+                active: true,
+                name: name,
+                category: cat,
+                department: dept,
+                importedAt: new Date(),
+                isManual: true
+            };
+
+            await db.collection('allowed_ids').doc(id).set(userData);
+            allUsersCache.push({ id: id, ...userData });
+            document.getElementById('admDatabaseCount').innerText = allUsersCache.length;
+            toast("User Added", "success");
+            toggleModal('addUserModal'); 
+        } catch (e) {
+            console.error(e);
+            toast("Error saving user", "error");
+        }
+    }
+
+    /* =========================================
+       9. SYNC, EXCEL & DATA MANAGEMENT
        ========================================= */
     function addToQueue(data) { 
         offlineQueue.push(data); 
@@ -716,48 +888,119 @@
         else { badge.classList.add('hidden'); badge.classList.remove('flex'); }
     }
 
-    // EXCEL IMPORT/EXPORT
+    // UPDATED EXCEL UPLOAD (Sheet 1 Only)
     function uploadExcel(input) {
         if(!input.files[0]) return;
         const r = new FileReader();
-        toast("Processing...", "info");
+        toast("Reading File...", "info");
+        
         r.onload = async e => {
-            const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
-            const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
-            const batch = db.batch();
-            let count = 0;
-            rows.forEach((row, i) => {
-                if(i===0 || !row[0]) return;
-                const id = String(row[0]).trim().toUpperCase();
-                if(id) {
-                    batch.set(db.collection('allowed_ids').doc(id), { active: true, category: row[1]||"Guest", name: row[2]||"Unknown", department: row[3]||"N/A", info: row[4]||"", importedAt: new Date() });
+            try {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, {type:'array'});
+                const firstSheetName = wb.SheetNames[0];
+                const sheet = wb.Sheets[firstSheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+                
+                let count = 0;
+                const batchLimit = 450; 
+                let batches = [];
+                let currentBatch = db.batch();
+                let batchCount = 0;
+
+                rows.forEach((row, i) => {
+                    if (!row[0]) return; 
+                    const col0 = String(row[0]).trim();
+                    if (col0.toLowerCase().includes('unique id')) return;
+
+                    const id = col0.toUpperCase();
+                    const userData = {
+                        active: true,
+                        category: row[1] || "Guest",
+                        name: row[2] || "Unknown",
+                        department: row[3] || "N/A",
+                        importedAt: new Date()
+                    };
+
+                    currentBatch.set(db.collection('allowed_ids').doc(id), userData);
                     count++;
-                }
-            });
-            await batch.commit();
-            toast(`Imported ${count} IDs`, "success");
-            preloadUserData();
+                    batchCount++;
+
+                    if (batchCount >= batchLimit) {
+                        batches.push(currentBatch);
+                        currentBatch = db.batch();
+                        batchCount = 0;
+                    }
+                });
+
+                if (batchCount > 0) batches.push(currentBatch);
+                if (count === 0) return toast("No valid data found", "error");
+
+                toast(`Importing ${count} IDs...`, "info");
+                for (const batch of batches) await batch.commit();
+
+                toast("Import Complete!", "success");
+                preloadUserData(); 
+            } catch (err) {
+                console.error(err);
+                toast("Error: " + err.message, "error");
+            }
         };
         r.readAsArrayBuffer(input.files[0]);
     }
     
+    // UPDATED STYLED DOWNLOAD
     async function downloadDailyReport() {
-        toast("Generating Log...", "info"); 
-        const today = getTodayDate(); 
-        const s = await db.collection('meal_records').get(); 
-        const rows = []; 
-        s.forEach(d => { 
-            const m = d.data().meals || {}; 
-            Object.keys(m).forEach(k => { 
-                const p=k.split('_'); 
-                if(p[1]===today) rows.push({ ID: d.id, Meal: p[0], Time: m[k].time }); 
-            }); 
-        }); 
-        const ws = XLSX.utils.json_to_sheet(rows); 
-        const wb = XLSX.utils.book_new(); 
-        XLSX.utils.book_append_sheet(wb, ws, "Logs"); 
-        XLSX.writeFile(wb, `Report_${today}.xlsx`); 
-        toast("Downloaded", "success"); 
+        toast("Generating Styled Report...", "info");
+        const today = getTodayDate();
+        const s = await db.collection('meal_records').get();
+        if (s.empty) return toast("No scans found", "error");
+
+        const userMap = new Map(allUsersCache.map(u => [u.id, u]));
+        const styles = {
+            title: { font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2A7B9B" } }, alignment: { horizontal: "center", vertical: "center" } },
+            header: { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "57C785" } }, alignment: { horizontal: "center" }, border: { bottom: { style: "medium", color: { rgb: "FFFFFF" } } } },
+            cell: { alignment: { horizontal: "left" }, border: { bottom: { style: "thin", color: { rgb: "E0E0E0" } } } },
+            cellCenter: { alignment: { horizontal: "center" }, border: { bottom: { style: "thin", color: { rgb: "E0E0E0" } } } }
+        };
+
+        let dataRows = [];
+        s.forEach(d => {
+            const m = d.data().meals || {};
+            Object.keys(m).forEach(k => {
+                const p = k.split('_'); 
+                if (p[1] === today) {
+                    const user = userMap.get(d.id) || { name: "Unknown", category: "N/A", department: "-" };
+                    dataRows.push([
+                        { v: d.id, s: styles.cell },
+                        { v: user.name, s: styles.cell },
+                        { v: user.category, s: styles.cellCenter },
+                        { v: user.department, s: styles.cell },
+                        { v: p[0], s: styles.cellCenter }, 
+                        { v: m[k].time, s: styles.cellCenter }
+                    ]);
+                }
+            });
+        });
+
+        if (dataRows.length === 0) return toast("No scans for today", "error");
+        dataRows.sort((a, b) => a[5].v.localeCompare(b[5].v));
+
+        const wsData = [
+            [{ v: `MealPass Daily Report - ${today}`, s: styles.title }, null, null, null, null, null], [], 
+            [{ v: "Unique ID", s: styles.header }, { v: "Name", s: styles.header }, { v: "Category", s: styles.header }, { v: "Department", s: styles.header }, { v: "Meal", s: styles.header }, { v: "Time Scanned", s: styles.header }],
+            ...dataRows
+        ];
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+        ws['!rows'] = [{ hpt: 30 }, { hpt: 10 }, { hpt: 20 }];
+        ws['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 }];
+
+        XLSX.utils.book_append_sheet(wb, ws, "Daily Log");
+        XLSX.writeFile(wb, `MealPass_Log_${today}.xlsx`);
+        toast("Download Complete", "success");
     }
 
     async function exportMasterList() {
@@ -771,19 +1014,14 @@
         toast("Downloaded", "success");
     }
 
-    // UI Helpers & Dropdown Logic
     function toggleDropdown(e, menuId) { 
         e.stopPropagation(); 
-        document.querySelectorAll('[id$="Menu"]').forEach(el => {
-            if(el.id !== menuId) el.classList.add('hidden');
-        });
+        document.querySelectorAll('[id$="Menu"]').forEach(el => { if(el.id !== menuId) el.classList.add('hidden'); });
         document.getElementById(menuId).classList.toggle('hidden'); 
     }
     
     function closeAllDropdowns(e) { 
-        document.querySelectorAll('[id$="Menu"]').forEach(el => {
-            if(!el.contains(e.target) && !e.target.closest('button')) el.classList.add('hidden');
-        });
+        document.querySelectorAll('[id$="Menu"]').forEach(el => { if(!el.contains(e.target) && !e.target.closest('button')) el.classList.add('hidden'); });
     }
     
     function adminSetGlobalMeal(val, icon, color) { 
@@ -794,39 +1032,27 @@
         closeAllDropdowns({target: document.body}); 
     }
 
-    /* =========================================
-       9. FIXED LOCK LOGIC & DB CLEARANCE
-       ========================================= */
     function toggleGlobalLock() { 
         const newState = !isGlobalLocked; 
         db.collection('settings').doc('global').set({ scannerLocked: newState }, { merge: true })
-        .then(() => {
-            if(newState) toast("System Paused - Scanners Locked", "error");
-            else toast("System Resumed - Scanners Active", "success");
-        })
+        .then(() => { if(newState) toast("System Paused", "error"); else toast("System Resumed", "success"); })
         .catch(() => toast("Update Failed", "error")); 
     }
     
     function updateGlobalLockState(locked) {
         isGlobalLocked = locked;
         const icon = document.getElementById('masterLockIcon');
-        const text = document.getElementById('masterLockText');
+        const text = document.getElementById('masterLockIcon'); 
         const bg = document.getElementById('masterLockBg');
         
         if(locked) {
             icon.classList.remove('ph-lock-key-open', 'text-green-600');
             icon.classList.add('ph-lock-key', 'text-red-600');
-            text.innerText = "LOCKED";
-            text.classList.remove('text-green-700');
-            text.classList.add('text-red-700');
             bg.className = "absolute inset-0 bg-red-200 transition-colors duration-500";
             document.getElementById('adminLockOverlay').classList.remove('hidden'); 
         } else {
             icon.classList.remove('ph-lock-key', 'text-red-600');
             icon.classList.add('ph-lock-key-open', 'text-green-600');
-            text.innerText = "SCANNERS ACTIVE";
-            text.classList.remove('text-red-700');
-            text.classList.add('text-green-700');
             bg.className = "absolute inset-0 bg-green-100/50 transition-colors duration-500";
             document.getElementById('adminLockOverlay').classList.add('hidden'); 
         }
@@ -843,7 +1069,6 @@
         document.getElementById('mealIconDisplay').parentElement.innerHTML = `<i id="mealIconDisplay" class="ph-fill ${iconClass} text-xl ${colorClass}"></i>`;
     }
 
-    // DANGER ZONE FUNCTIONS
     async function clearDatabase(mode) {
         const msg = mode === 'scans' ? "Delete all MEAL RECORDS? This cannot be undone." : 
                    mode === 'users' ? "Wipe the MASTER ID LIST? You will need to re-upload Excel." :
@@ -865,25 +1090,18 @@
             }
             toast("Database Cleared", "success");
             setTimeout(() => window.location.reload(), 1500);
-        } catch(e) {
-            console.error(e);
-            toast("Delete Failed: " + e.message, "error");
-        }
+        } catch(e) { console.error(e); toast("Delete Failed: " + e.message, "error"); }
     }
 
     async function deleteCollection(path) {
         const ref = db.collection(path);
         const snapshot = await ref.get();
         if (snapshot.size === 0) return;
-
         const batch = db.batch();
-        snapshot.docs.forEach((doc) => {
-            batch.delete(doc.ref);
-        });
+        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
         await batch.commit();
     }
 
-    // UPDATED LOAD USERS WITH DISTINCT PENDING ACTIONS
     function loadUsers() { 
         const l = document.getElementById('userList'); l.innerHTML = ""; 
         db.collection('users').orderBy('createdAt').get().then(s => { 
@@ -893,7 +1111,6 @@
                 const isAdmin = u.role === 'admin';
                 const isPending = u.role === 'pending';
                 
-                // Styles based on role
                 let avatarBg = 'bg-slate-100 text-slate-600';
                 if(isAdmin) avatarBg = 'bg-blue-100 text-blue-600';
                 if(isPending) avatarBg = 'bg-yellow-100 text-yellow-600';
@@ -902,50 +1119,21 @@
                 if(isAdmin) roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-500 text-white">Admin</span>`;
                 if(isPending) roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-yellow-400 text-yellow-900 animate-pulse">Pending</span>`;
 
-                // ACTIONS
                 let actions = "";
                 if(!isMe) {
                     if(isPending) {
-                        // DISTINCT ACTIONS FOR PENDING: APPROVE VOLUNTEER OR ADMIN
-                        actions = `
-                            <div class="flex gap-1 shrink-0">
-                                <button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-green-100"><i class="ph-bold ph-check"></i></button>
-                                <button onclick="setRole('${d.id}','admin')" class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-blue-100"><i class="ph-bold ph-shield-check"></i></button>
-                                <button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button>
-                            </div>
-                        `;
+                        actions = `<div class="flex gap-1 shrink-0"><button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-green-100"><i class="ph-bold ph-check"></i></button><button onclick="setRole('${d.id}','admin')" class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-blue-100"><i class="ph-bold ph-shield-check"></i></button><button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>`;
                     } else {
-                        // STANDARD TOGGLE FOR ESTABLISHED USERS
-                        actions = `
-                            <div class="flex gap-1 shrink-0">
-                                <button onclick="setRole('${d.id}','${isAdmin ? 'volunteer' : 'admin'}')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-200 flex items-center justify-center transition-colors"><i class="ph-bold ${isAdmin ? 'ph-arrow-down' : 'ph-arrow-up'}"></i></button>
-                                <button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button>
-                            </div>
-                        `;
+                        actions = `<div class="flex gap-1 shrink-0"><button onclick="setRole('${d.id}','${isAdmin ? 'volunteer' : 'admin'}')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-200 flex items-center justify-center transition-colors"><i class="ph-bold ${isAdmin ? 'ph-arrow-down' : 'ph-arrow-up'}"></i></button><button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>`;
                     }
                 }
 
-                l.innerHTML += `
-                    <div class="glass p-3 rounded-2xl flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0 border border-white/50">${u.email.charAt(0).toUpperCase()}</div>
-                        <div class="flex-1 overflow-hidden">
-                            <div class="text-xs font-bold text-slate-800 truncate">${u.email}</div>
-                            <div class="flex items-center gap-1 mt-0.5">
-                                ${roleBadge}
-                                ${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}
-                            </div>
-                        </div>
-                        ${actions}
-                    </div>
-                `;
+                l.innerHTML += `<div class="glass p-3 rounded-2xl flex items-center gap-3"><div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0 border border-white/50">${u.email.charAt(0).toUpperCase()}</div><div class="flex-1 overflow-hidden"><div class="text-xs font-bold text-slate-800 truncate">${u.email}</div><div class="flex items-center gap-1 mt-0.5">${roleBadge}${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}</div></div>${actions}</div>`;
             }); 
         }); 
     }
 
-    function setRole(id, r) { 
-        if(confirm(`Set role to ${r.toUpperCase()}?`)) db.collection('users').doc(id).update({role:r}).then(loadUsers); 
-    }
-    
+    function setRole(id, r) { if(confirm(`Set role to ${r.toUpperCase()}?`)) db.collection('users').doc(id).update({role:r}).then(loadUsers); }
     function delUser(id) { if(confirm("Revoke Access?")) db.collection('users').doc(id).update({disabled: true}).then(loadUsers); }
 
 </script>
