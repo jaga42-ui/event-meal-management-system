@@ -222,8 +222,25 @@
                         <i class="ph-fill ph-microsoft-excel-logo text-green-600 text-2xl group-hover:scale-110 transition-transform"></i>
                         <input type="file" id="excelInput" accept=".xlsx" class="hidden" onchange="uploadExcel(this)">
                     </button>
-                    <div onclick="downloadDailyReport()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer hover:scale-105 active:scale-95">
-                        <i class="ph-fill ph-download-simple text-blue-600 text-2xl group-hover:scale-110 transition-transform"></i>
+                    
+                    <div class="relative">
+                        <button onclick="toggleDropdown(event, 'downloadMenu')" class="w-full glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer hover:scale-105 active:scale-95">
+                            <i class="ph-fill ph-download-simple text-blue-600 text-2xl group-hover:scale-110 transition-transform"></i>
+                        </button>
+                        
+                        <div id="downloadMenu" class="hidden absolute top-full left-0 mt-2 w-48 glass rounded-[2rem] p-2 shadow-2xl origin-top z-50 flex-col gap-1 border-2 border-blue-100">
+                             <div class="px-4 py-2 text-[10px] font-bold text-blue-400 uppercase tracking-widest text-center">Export</div>
+                             
+                             <button onclick="downloadDailyReport()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
+                                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-file-text text-blue-500"></i></div>
+                                <div><span class="font-bold text-slate-700 text-xs block">Scan Logs</span></div>
+                             </button>
+
+                             <button onclick="exportMasterList()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
+                                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-users text-blue-500"></i></div>
+                                <div><span class="font-bold text-slate-700 text-xs block">Master List</span></div>
+                             </button>
+                        </div>
                     </div>
                     
                     <button onclick="toggleGlobalLock()" id="masterLockBtn" class="col-span-2 glass p-3 rounded-3xl flex flex-col items-center justify-center gap-1 transition-all group relative overflow-hidden hover:scale-[1.02] active:scale-[0.98]">
@@ -735,6 +752,17 @@
         toast("Downloaded", "success"); 
     }
 
+    async function exportMasterList() {
+        toast("Exporting List...", "info");
+        const s = await db.collection('allowed_ids').get();
+        const rows = s.docs.map(d => ({ID: d.id, ...d.data()}));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "MasterList");
+        XLSX.writeFile(wb, "Master_Participant_List.xlsx");
+        toast("Downloaded", "success");
+    }
+
     // UI Helpers & Dropdown Logic
     function toggleDropdown(e, menuId) { 
         e.stopPropagation(); 
@@ -762,12 +790,9 @@
        9. FIXED LOCK LOGIC & DB CLEARANCE
        ========================================= */
     function toggleGlobalLock() { 
-        // FIX: Capture intended state immediately
         const newState = !isGlobalLocked; 
-
         db.collection('settings').doc('global').set({ scannerLocked: newState }, { merge: true })
         .then(() => {
-            // FIX: Use captured state for alert logic
             if(newState) toast("System Paused - Scanners Locked", "error");
             else toast("System Resumed - Scanners Active", "success");
         })
@@ -850,19 +875,70 @@
         await batch.commit();
     }
 
+    // UPDATED LOAD USERS WITH DISTINCT PENDING ACTIONS
     function loadUsers() { 
         const l = document.getElementById('userList'); l.innerHTML = ""; 
         db.collection('users').orderBy('createdAt').get().then(s => { 
             s.forEach(d => { 
                 const u = d.data(); if(u.disabled) return; 
-                const isMe = auth.currentUser.uid === d.id; const isAdmin = u.role === 'admin';
-                const avatarBg = isAdmin ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600';
-                l.innerHTML += `<div class="glass p-3 rounded-2xl flex items-center gap-3"><div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0">${u.email.charAt(0).toUpperCase()}</div><div class="flex-1 overflow-hidden"><div class="text-xs font-bold text-slate-800 truncate">${u.email}</div><div class="flex items-center gap-1 mt-0.5"><span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isAdmin ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}">${u.role}</span>${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}</div></div>${!isMe ? `<div class="flex gap-1 shrink-0">${isAdmin ? `<button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-orange-100 hover:text-orange-500 flex items-center justify-center"><i class="ph-bold ph-arrow-down"></i></button>` : `<button onclick="setRole('${d.id}','admin')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-blue-100 hover:text-blue-500 flex items-center justify-center"><i class="ph-bold ph-arrow-up"></i></button>`}<button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>` : ''}</div>`;
+                const isMe = auth.currentUser.uid === d.id; 
+                const isAdmin = u.role === 'admin';
+                const isPending = u.role === 'pending';
+                
+                // Styles based on role
+                let avatarBg = 'bg-slate-100 text-slate-600';
+                if(isAdmin) avatarBg = 'bg-blue-100 text-blue-600';
+                if(isPending) avatarBg = 'bg-yellow-100 text-yellow-600';
+                
+                let roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200 text-slate-500">${u.role}</span>`;
+                if(isAdmin) roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-500 text-white">Admin</span>`;
+                if(isPending) roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-yellow-400 text-yellow-900 animate-pulse">Pending</span>`;
+
+                // ACTIONS
+                let actions = "";
+                if(!isMe) {
+                    if(isPending) {
+                        // DISTINCT ACTIONS FOR PENDING: APPROVE VOLUNTEER OR ADMIN
+                        actions = `
+                            <div class="flex gap-1 shrink-0">
+                                <button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-green-100"><i class="ph-bold ph-check"></i></button>
+                                <button onclick="setRole('${d.id}','admin')" class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-blue-100"><i class="ph-bold ph-shield-check"></i></button>
+                                <button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button>
+                            </div>
+                        `;
+                    } else {
+                        // STANDARD TOGGLE FOR ESTABLISHED USERS
+                        actions = `
+                            <div class="flex gap-1 shrink-0">
+                                <button onclick="setRole('${d.id}','${isAdmin ? 'volunteer' : 'admin'}')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-200 flex items-center justify-center transition-colors"><i class="ph-bold ${isAdmin ? 'ph-arrow-down' : 'ph-arrow-up'}"></i></button>
+                                <button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button>
+                            </div>
+                        `;
+                    }
+                }
+
+                l.innerHTML += `
+                    <div class="glass p-3 rounded-2xl flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0 border border-white/50">${u.email.charAt(0).toUpperCase()}</div>
+                        <div class="flex-1 overflow-hidden">
+                            <div class="text-xs font-bold text-slate-800 truncate">${u.email}</div>
+                            <div class="flex items-center gap-1 mt-0.5">
+                                ${roleBadge}
+                                ${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}
+                            </div>
+                        </div>
+                        ${actions}
+                    </div>
+                `;
             }); 
         }); 
     }
-    function setRole(id, r) { db.collection('users').doc(id).update({role:r}).then(loadUsers); }
-    function delUser(id) { if(confirm("Revoke?")) db.collection('users').doc(id).update({disabled: true}).then(loadUsers); }
+
+    function setRole(id, r) { 
+        if(confirm(`Set role to ${r.toUpperCase()}?`)) db.collection('users').doc(id).update({role:r}).then(loadUsers); 
+    }
+    
+    function delUser(id) { if(confirm("Revoke Access?")) db.collection('users').doc(id).update({disabled: true}).then(loadUsers); }
 
 </script>
 </body>
