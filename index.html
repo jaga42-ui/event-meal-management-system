@@ -183,15 +183,14 @@
         <main class="flex-1 overflow-y-auto p-6 space-y-6 pb-24 no-scrollbar z-10">
             <div id="volunteerPanel" class="hidden space-y-4 anim-enter delay-200">
                 
-                <div class="flex justify-center">
-                    <button onclick="toggleSearch()" class="glass px-6 py-3 rounded-full text-[#2A7B9B] font-bold shadow-lg hover:bg-white transition-all active:scale-95 flex items-center gap-2 mb-2">
-                        <i class="ph-bold ph-magnifying-glass text-xl"></i>
-                        <span>Manual Search</span>
-                    </button>
-                </div>
-                
                 <div class="relative w-full aspect-square bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white/40 backdrop-blur-sm group">
                     <div id="reader" class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <button onclick="toggleSearch()" class="absolute top-6 left-1/2 -translate-x-1/2 z-40 glass px-5 py-2.5 rounded-full flex items-center gap-2 text-[#2A7B9B] font-bold shadow-[0_4px_20px_rgba(0,0,0,0.1)] border border-white/40 hover:bg-white hover:scale-105 transition-all active:scale-95 group-hover:opacity-100">
+                        <i class="ph-bold ph-magnifying-glass text-lg"></i>
+                        <span class="text-xs uppercase tracking-widest">Search ID</span>
+                    </button>
+
                     <div id="scannerLaser" class="scan-laser hidden"></div>
                     <div id="adminLockOverlay" class="absolute inset-0 bg-red-900/90 backdrop-blur-md z-[60] flex flex-col items-center justify-center hidden">
                         <div class="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_30px_#ef4444] animate-pulse mb-4"><i class="ph-fill ph-lock-key text-4xl text-white"></i></div>
