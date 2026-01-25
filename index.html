@@ -331,7 +331,9 @@
     let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
     let allUsersCache = [];
     let isCacheLoaded = false;
-    const localSessionCache = new Set(); 
+    
+    // CHANGED: Use a Map so we can store timestamps!
+    const localSessionCache = new Map(); 
 
     // Helper: Timeout for network requests to prevent hanging
     const withTimeout = (promise, ms = 2500) => {
@@ -549,9 +551,11 @@
         let isOfflineMode = !navigator.onLine;
 
         try {
+            // FIXED: CHECK LOCAL MAP FOR TIME
             if (localSessionCache.has(`${id}_${recordKey}`)) {
+                const cachedTime = localSessionCache.get(`${id}_${recordKey}`);
                 const cachedUser = allUsersCache.find(u => u.id === id) || {};
-                throw { type: 'DUPLICATE', person: cachedUser, msg: "Scanned locally just now" };
+                throw { type: 'DUPLICATE', person: cachedUser, msg: `Served at ${cachedTime}` };
             }
 
             let person = allUsersCache.find(u => u.id === id);
@@ -577,6 +581,11 @@
                 }
             }
 
+            // SUCCESSFUL SCAN
+            // SAVE TIME TO LOCAL CACHE IMMEDIATELY
+            const nowTime = new Date().toLocaleTimeString();
+            localSessionCache.set(`${id}_${recordKey}`, nowTime);
+
             if (isOfflineMode) {
                 addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: today, personName: person.name });
                 finishScan(true, person, id, "Saved Offline");
@@ -589,7 +598,6 @@
                     finishScan(true, person, id, "Saved Offline (Retry)");
                 }
             }
-            localSessionCache.add(`${id}_${recordKey}`);
 
         } catch (e) {
             if (e.type === 'DUPLICATE') {
