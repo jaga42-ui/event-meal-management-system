@@ -203,12 +203,23 @@
                     <i class="ph-bold ph-stop-circle text-xl"></i>
                     <span>Stop Camera</span>
                 </button>
+
+                <div id="recentScansContainer" class="hidden">
+                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-2">Recent Scans</div>
+                    <div id="recentScansList" class="space-y-2">
+                        </div>
+                </div>
             </div>
 
             <div id="adminPanel" class="hidden space-y-4 anim-enter delay-200">
                 <div class="glass-dark p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
                     <div class="absolute -top-10 -right-10 w-40 h-40 bg-[#2480D1] rounded-full blur-[60px] opacity-50"></div>
-                    <h3 class="font-bold text-lg mb-5 relative z-10 flex items-center gap-2"><i class="ph-fill ph-chart-line-up"></i> Live Counters</h3>
+                    <h3 class="font-bold text-lg mb-5 relative z-10 flex items-center justify-between">
+                        <div class="flex items-center gap-2"><i class="ph-fill ph-chart-line-up"></i> Live Counters</div>
+                        <button onclick="toggleModal('analyticsModal'); renderAnalytics();" class="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1">
+                            <i class="ph-bold ph-list-dashes"></i> Breakdown
+                        </button>
+                    </h3>
                     <div class="grid grid-cols-2 gap-4 relative z-10">
                         <div class="bg-white/10 p-3 rounded-2xl border border-white/10">
                             <div class="text-green-300 text-[10px] font-bold uppercase mb-1 tracking-wider">Current Session</div>
@@ -322,6 +333,19 @@
         <div id="resultCard" class="bg-white w-80 rounded-[2.5rem] overflow-hidden shadow-2xl transform transition-all duration-300 scale-95 p-6 border-4"></div>
     </div>
 
+    <div id="analyticsModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-md hidden transition-opacity">
+        <div class="bg-white w-80 rounded-[2rem] shadow-2xl p-6 relative max-h-[80vh] flex flex-col">
+            <button onclick="toggleModal('analyticsModal')" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-slate-200"><i class="ph-bold ph-x"></i></button>
+            <div class="text-center mb-4">
+                <h3 class="font-bold text-xl text-slate-800">Session Breakdown</h3>
+                <p id="analyticsSub" class="text-xs text-slate-500 font-medium">Current Meal Stats</p>
+            </div>
+            <div id="analyticsContent" class="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+                <div class="text-center text-slate-400 py-4">Loading...</div>
+            </div>
+        </div>
+    </div>
+
     <div id="searchModal" class="fixed inset-0 z-[150] flex flex-col bg-slate-900/90 backdrop-blur-md hidden transition-opacity duration-300">
         <div class="p-6 pb-2 flex items-center justify-between">
             <h2 class="text-white font-bold text-lg">Manual Lookup</h2>
@@ -406,10 +430,12 @@
     let isSignup = false;
     let wakeLock = null;
     let audioCtx = null;
+    let currentStatsDoc = null; // Store for analytics
     
     // OFFLINE QUEUE & CACHE
     let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
     let allUsersCache = [];
+    let recentScans = []; // New history array
     let isCacheLoaded = false;
     
     const localSessionCache = new Map(); 
@@ -506,12 +532,14 @@
         });
 
         db.collection('stats').doc('counts').onSnapshot(doc => {
-            if (doc.exists && currentMeal) {
-                const data = doc.data();
-                const sessionKey = `${currentMeal}_${getTodayDate()}`;
-                document.getElementById('admSessionCount').innerText = data[sessionKey] || 0;
-                document.getElementById('volHeaderCount').innerText = `${data[sessionKey] || 0} Scanned`;
-                document.getElementById('admTotalEventMeals').innerText = data['total_scans_ever'] || 0;
+            if (doc.exists) {
+                currentStatsDoc = doc.data(); // Cache for analytics
+                if (currentMeal) {
+                    const sessionKey = `${currentMeal}_${getTodayDate()}`;
+                    document.getElementById('admSessionCount').innerText = currentStatsDoc[sessionKey] || 0;
+                    document.getElementById('volHeaderCount').innerText = `${currentStatsDoc[sessionKey] || 0} Scanned`;
+                    document.getElementById('admTotalEventMeals').innerText = currentStatsDoc['total_scans_ever'] || 0;
+                }
             }
         });
         
@@ -596,6 +624,7 @@
         
         document.getElementById('startOverlay').classList.add('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.remove('hidden');
+        document.getElementById('recentScansContainer').classList.remove('hidden'); // Show History
         document.getElementById('scannerLaser').classList.remove('hidden');
 
         scanner = new Html5Qrcode("reader");
@@ -611,6 +640,7 @@
         
         document.getElementById('startOverlay').classList.remove('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.add('hidden');
+        document.getElementById('recentScansContainer').classList.add('hidden'); // Hide History
         document.getElementById('scannerLaser').classList.add('hidden');
         document.getElementById('reader').innerHTML = "";
     }
@@ -633,6 +663,10 @@
             if (localSessionCache.has(`${id}_${recordKey}`)) {
                 const cachedTime = localSessionCache.get(`${id}_${recordKey}`);
                 const cachedUser = allUsersCache.find(u => u.id === id) || {};
+                
+                // FEATURE 1: Add to History even if duplicate
+                addToRecentScans(cachedUser.name || "Unknown", "DUPLICATE");
+                
                 throw { type: 'DUPLICATE', person: cachedUser, msg: `Served at ${cachedTime}` };
             }
 
@@ -651,6 +685,7 @@
                     const snap = await withTimeout(db.collection('meal_records').doc(id).get(), 2500);
                     const data = snap.exists ? snap.data().meals || {} : {};
                     if (data[recordKey]) {
+                        addToRecentScans(person.name, "DUPLICATE"); // FEATURE 1
                         throw { type: 'DUPLICATE', person: person, msg: `Served at ${data[recordKey].time}` };
                     }
                 } catch (e) {
@@ -662,16 +697,19 @@
             // SUCCESSFUL SCAN
             const nowTime = new Date().toLocaleTimeString();
             localSessionCache.set(`${id}_${recordKey}`, nowTime);
+            
+            // FEATURE 1: Add to History
+            addToRecentScans(person.name, "SUCCESS");
 
             if (isOfflineMode) {
-                addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: today, personName: person.name });
+                addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: today, personName: person.name, category: person.category });
                 finishScan(true, person, id, "Saved Offline");
             } else {
                 try {
                     await withTimeout(performCloudWrite(id, person, recordKey), 3000);
                     finishScan(true, person, id, "Authorized");
                 } catch (e) {
-                    addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: today, personName: person.name });
+                    addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: today, personName: person.name, category: person.category });
                     finishScan(true, person, id, "Saved Offline (Retry)");
                 }
             }
@@ -683,6 +721,7 @@
                     name: e.person.name || "Unknown", cat: e.person.category || "-", id: id, dept: e.person.department
                 });
             } else {
+                addToRecentScans("Invalid ID", "ERROR"); // FEATURE 1
                 showResult(false, {
                     title: "ERROR", msg: "Invalid ID / Error",
                     name: "Unknown", cat: "Error", id: id, dept: "-"
@@ -701,11 +740,21 @@
     async function performCloudWrite(id, person, recordKey) {
         const batch = db.batch();
         const ref = db.collection('meal_records').doc(id);
+        
+        // FEATURE 2: ANALYTICS KEY GENERATION
+        // Create a safe key for the category (e.g., Breakfast_2026-01-26_Volunteer)
+        const safeCat = (person.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '');
+        const catKey = `${recordKey}_CAT_${safeCat}`; 
+
         batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: getTodayDate() } } }, { merge: true });
+        
+        // Update both TOTAL and CATEGORY counters
         batch.set(db.collection('stats').doc('counts'), { 
             [recordKey]: firebase.firestore.FieldValue.increment(1), 
+            [catKey]: firebase.firestore.FieldValue.increment(1), // Analytics Increment
             'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
         }, { merge: true });
+        
         return batch.commit();
     }
 
@@ -764,7 +813,83 @@
     }
 
     /* =========================================
-       8. MANUAL SEARCH & ADD USER
+       8. FEATURE 1: RECENT HISTORY
+       ========================================= */
+    function addToRecentScans(name, status) {
+        const list = document.getElementById('recentScansList');
+        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+        
+        let colorClass = "bg-green-50 border-green-200 text-green-700";
+        let icon = "ph-check-circle";
+        if(status !== "SUCCESS") {
+            colorClass = "bg-red-50 border-red-200 text-red-700";
+            icon = "ph-warning-circle";
+        }
+
+        const itemHTML = `
+            <div class="flex items-center justify-between p-3 rounded-xl border ${colorClass} animate-[slideUp_0.3s_ease-out]">
+                <div class="flex items-center gap-3">
+                    <i class="ph-fill ${icon} text-lg"></i>
+                    <span class="font-bold text-sm truncate max-w-[150px]">${name}</span>
+                </div>
+                <span class="text-xs font-mono opacity-80">${time}</span>
+            </div>
+        `;
+        
+        // Add to array and DOM
+        recentScans.unshift(itemHTML);
+        if(recentScans.length > 3) recentScans.pop();
+        
+        list.innerHTML = recentScans.join('');
+    }
+
+    /* =========================================
+       9. FEATURE 2: ANALYTICS MODAL
+       ========================================= */
+    function renderAnalytics() {
+        const container = document.getElementById('analyticsContent');
+        const sub = document.getElementById('analyticsSub');
+        
+        if(!currentMeal || !currentStatsDoc) {
+            container.innerHTML = '<div class="text-center text-slate-400 py-4">No data available yet.</div>';
+            return;
+        }
+
+        const prefix = `${currentMeal}_${getTodayDate()}_CAT_`;
+        const breakdown = {};
+        let totalCheck = 0;
+
+        // Parse keys from stats doc
+        Object.keys(currentStatsDoc).forEach(key => {
+            if(key.startsWith(prefix)) {
+                const catName = key.replace(prefix, '');
+                breakdown[catName] = currentStatsDoc[key];
+                totalCheck += currentStatsDoc[key];
+            }
+        });
+
+        sub.innerText = `${currentMeal} - Total: ${totalCheck}`;
+
+        if(Object.keys(breakdown).length === 0) {
+            container.innerHTML = '<div class="text-center text-slate-400 py-4">No categorical data recorded yet.</div>';
+            return;
+        }
+
+        // Render sorted list
+        const html = Object.entries(breakdown)
+            .sort((a,b) => b[1] - a[1]) // Sort by count descending
+            .map(([cat, count]) => `
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span class="font-bold text-slate-700 text-sm">${cat}</span>
+                    <span class="font-mono font-bold text-[#2A7B9B] bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100">${count}</span>
+                </div>
+            `).join('');
+            
+        container.innerHTML = html;
+    }
+
+    /* =========================================
+       10. MANUAL SEARCH & ADD USER
        ========================================= */
     function toggleSearch() {
         const modal = document.getElementById('searchModal');
@@ -878,7 +1003,7 @@
     }
 
     /* =========================================
-       9. SYNC, EXCEL & DATA MANAGEMENT
+       11. SYNC, EXCEL & DATA MANAGEMENT
        ========================================= */
     function addToQueue(data) { 
         offlineQueue.push(data); 
@@ -895,8 +1020,18 @@
             if(!item.id || !item.meal) return;
             const ref = db.collection('meal_records').doc(item.id);
             const k = `${item.meal}_${item.date}`;
+            
+            // ANALYTICS SYNC LOGIC
+            const safeCat = (item.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '');
+            const catKey = `${k}_CAT_${safeCat}`; 
+
             batch.set(ref, { meals: { [k]: { time: new Date(item.timestamp).toLocaleTimeString(), date: item.date } } }, { merge: true });
-            batch.set(db.collection('stats').doc('counts'), { [k]: firebase.firestore.FieldValue.increment(1), 'total_scans_ever': firebase.firestore.FieldValue.increment(1) }, { merge: true });
+            
+            batch.set(db.collection('stats').doc('counts'), { 
+                [k]: firebase.firestore.FieldValue.increment(1), 
+                [catKey]: firebase.firestore.FieldValue.increment(1), // Sync Category Count
+                'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
+            }, { merge: true });
         });
         try { 
             await batch.commit(); 
