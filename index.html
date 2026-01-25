@@ -136,9 +136,6 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="toggleSearch()" class="w-10 h-10 rounded-full bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-white/40 transition-all flex items-center justify-center shadow-md">
-                        <i class="ph-bold ph-magnifying-glass text-lg"></i>
-                    </button>
                     <button onclick="logout()" class="w-10 h-10 rounded-full bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-red-500/80 hover:border-red-500 transition-all flex items-center justify-center shadow-md">
                         <i class="ph-bold ph-power text-lg"></i>
                     </button>
@@ -185,8 +182,15 @@
 
         <main class="flex-1 overflow-y-auto p-6 space-y-6 pb-24 no-scrollbar z-10">
             <div id="volunteerPanel" class="hidden space-y-4 anim-enter delay-200">
+                
                 <div class="relative w-full aspect-square bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white/40 backdrop-blur-sm group">
                     <div id="reader" class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <button onclick="toggleSearch()" class="absolute top-6 left-1/2 -translate-x-1/2 z-40 glass px-5 py-2.5 rounded-full flex items-center gap-2 text-[#2A7B9B] font-bold shadow-[0_4px_20px_rgba(0,0,0,0.1)] border border-white/40 hover:bg-white hover:scale-105 transition-all active:scale-95 group-hover:opacity-100">
+                        <i class="ph-bold ph-magnifying-glass text-lg"></i>
+                        <span class="text-xs uppercase tracking-widest">Search ID</span>
+                    </button>
+
                     <div id="scannerLaser" class="scan-laser hidden"></div>
                     <div id="adminLockOverlay" class="absolute inset-0 bg-red-900/90 backdrop-blur-md z-[60] flex flex-col items-center justify-center hidden">
                         <div class="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_30px_#ef4444] animate-pulse mb-4"><i class="ph-fill ph-lock-key text-4xl text-white"></i></div>
@@ -270,13 +274,23 @@
                         
                         <div id="dangerMenu" class="hidden absolute top-full left-0 right-0 mt-2 glass rounded-[2rem] p-2 shadow-2xl origin-top z-50 flex-col gap-1 border-2 border-red-100">
                              <div class="px-4 py-2 text-[10px] font-bold text-red-400 uppercase tracking-widest text-center">Select Action</div>
+                             
                              <button onclick="clearDatabase('scans')" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-4 text-left group">
                                 <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><i class="ph-fill ph-clock-counter-clockwise text-red-500 text-lg"></i></div>
                                 <div>
-                                    <span class="font-bold text-slate-700 block text-sm">Clear Today's Scans</span>
-                                    <span class="text-[10px] text-slate-400 font-bold">Resets meal counters only</span>
+                                    <span class="font-bold text-slate-700 block text-sm">Clear All Scan Logs</span>
+                                    <span class="text-[10px] text-slate-400 font-bold">Wipes history & counters</span>
                                 </div>
                              </button>
+
+                             <button onclick="resetTotalCounter()" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-4 text-left group">
+                                <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><i class="ph-fill ph-counter-clockwise text-red-500 text-lg"></i></div>
+                                <div>
+                                    <span class="font-bold text-slate-700 block text-sm">Reset Total Counter</span>
+                                    <span class="text-[10px] text-slate-400 font-bold">Set 'Total Served' to 0</span>
+                                </div>
+                             </button>
+
                              <button onclick="clearDatabase('users')" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-4 text-left group">
                                 <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><i class="ph-fill ph-users-three text-red-500 text-lg"></i></div>
                                 <div>
@@ -284,6 +298,7 @@
                                     <span class="text-[10px] text-slate-400 font-bold">Deletes all ID data</span>
                                 </div>
                              </button>
+
                              <button onclick="clearDatabase('all')" class="w-full p-3 bg-red-500 hover:bg-red-600 rounded-2xl flex items-center gap-4 text-left mt-1 shadow-md">
                                 <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center"><i class="ph-fill ph-warning text-white text-lg"></i></div>
                                 <div>
@@ -1083,8 +1098,21 @@
         document.getElementById('mealIconDisplay').parentElement.innerHTML = `<i id="mealIconDisplay" class="ph-fill ${iconClass} text-xl ${colorClass}"></i>`;
     }
 
+    // NEW FUNCTION: RESET TOTAL COUNTER ONLY
+    async function resetTotalCounter() {
+        if(!confirm("Reset ONLY the 'Total Served' counter to 0?")) return;
+        try {
+            await db.collection('stats').doc('counts').set({ total_scans_ever: 0 }, { merge: true });
+            document.getElementById('admTotalEventMeals').innerText = "0";
+            toast("Total Counter Reset", "success");
+        } catch(e) {
+            console.error(e);
+            toast("Error: " + e.message, "error");
+        }
+    }
+
     async function clearDatabase(mode) {
-        const msg = mode === 'scans' ? "Delete all MEAL RECORDS? This cannot be undone." : 
+        const msg = mode === 'scans' ? "Delete ALL SCAN LOGS? This cannot be undone." : 
                    mode === 'users' ? "Wipe the MASTER ID LIST? You will need to re-upload Excel." :
                    "FACTORY RESET? This will delete ALL data.";
         
