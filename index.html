@@ -341,7 +341,7 @@
             msgBox.innerHTML = '<i class="ph-fill ph-wifi-high"></i><span>Connection Restored</span>';
             banner.style.transform = "translateY(0)";
             setTimeout(() => banner.style.transform = "translateY(-100%)", 3000);
-            processQueue(); // Auto sync when back online
+            processQueue(); 
         } else {
             msgBox.className = "bg-red-500 text-white text-xs font-bold uppercase tracking-widest text-center py-2 shadow-lg flex items-center justify-center gap-2";
             msgBox.innerHTML = '<i class="ph-fill ph-wifi-slash"></i><span>No Internet - Offline Mode Active</span>';
@@ -389,7 +389,7 @@
             document.getElementById('dashboard').classList.remove('hidden');
             initDashboard(user.uid);
             setupListeners();
-            updateConnectionStatus(); // Check initial status
+            updateConnectionStatus(); 
         } else {
             document.getElementById('authScreen').classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('dashboard').classList.add('hidden');
@@ -491,7 +491,6 @@
     async function startScanner() {
         if (scanner || isGlobalLocked) return;
         
-        // Ensure Audio is Ready
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') await audioCtx.resume();
         
@@ -763,8 +762,16 @@
        9. FIXED LOCK LOGIC & DB CLEARANCE
        ========================================= */
     function toggleGlobalLock() { 
-        db.collection('settings').doc('global').set({ scannerLocked: !isGlobalLocked }, { merge: true })
-        .then(() => toast(!isGlobalLocked ? "All Scanners Locked" : "Unlocked", !isGlobalLocked ? "error" : "success")); 
+        // FIX: Capture intended state immediately
+        const newState = !isGlobalLocked; 
+
+        db.collection('settings').doc('global').set({ scannerLocked: newState }, { merge: true })
+        .then(() => {
+            // FIX: Use captured state for alert logic
+            if(newState) toast("System Paused - Scanners Locked", "error");
+            else toast("System Resumed - Scanners Active", "success");
+        })
+        .catch(() => toast("Update Failed", "error")); 
     }
     
     function updateGlobalLockState(locked) {
@@ -774,7 +781,6 @@
         const bg = document.getElementById('masterLockBg');
         
         if(locked) {
-            // LOCKED STATE (RED)
             icon.classList.remove('ph-lock-key-open', 'text-green-600');
             icon.classList.add('ph-lock-key', 'text-red-600');
             text.innerText = "LOCKED";
@@ -783,7 +789,6 @@
             bg.className = "absolute inset-0 bg-red-200 transition-colors duration-500";
             document.getElementById('adminLockOverlay').classList.remove('hidden'); 
         } else {
-            // UNLOCKED STATE (GREEN)
             icon.classList.remove('ph-lock-key', 'text-red-600');
             icon.classList.add('ph-lock-key-open', 'text-green-600');
             text.innerText = "SCANNERS ACTIVE";
@@ -817,14 +822,13 @@
         try {
             if (mode === 'scans' || mode === 'all') {
                 await deleteCollection('meal_records');
-                // Reset stats count
                 await db.collection('stats').doc('counts').set({});
             }
             if (mode === 'users' || mode === 'all') {
                 await deleteCollection('allowed_ids');
             }
             if (mode === 'all') {
-                await deleteCollection('users'); // Optional, keeps admin but deletes volunteers
+                await deleteCollection('users'); 
             }
             toast("Database Cleared", "success");
             setTimeout(() => window.location.reload(), 1500);
