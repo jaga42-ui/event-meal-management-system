@@ -27,8 +27,10 @@
         /* Animations */
         @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
         .anim-float { animation: float 6s ease-in-out infinite; }
+        
         @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         .anim-enter { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+        
         @keyframes popIn { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         .result-anim { animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
@@ -46,8 +48,6 @@
 
         @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
         .splash-exit { animation: fadeOut 0.8s ease-in forwards; }
-        @keyframes menuSlide { from { opacity: 0; transform: translateY(-10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .menu-anim { animation: menuSlide 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
 
         .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); }
         .glass-dark { background: rgba(15, 17, 42, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
@@ -60,7 +60,7 @@
     </style>
 </head>
 
-<body class="h-screen flex flex-col custom-bg text-slate-800 selection:bg-teal-500 selection:text-white" onclick="closeDropdown(event)">
+<body class="h-screen flex flex-col custom-bg text-slate-800 selection:bg-teal-500 selection:text-white" onclick="closeAllDropdowns(event)">
 
     <div id="splash" class="fixed inset-0 z-[200] flex flex-col items-center justify-center custom-bg text-white">
         <div class="relative w-24 h-24 flex items-center justify-center mb-6">
@@ -72,6 +72,13 @@
         <p class="text-teal-100 text-sm mt-2 font-medium tracking-widest uppercase">Event Edition 2026</p>
     </div>
 
+    <div id="connectionBanner" class="fixed top-0 left-0 right-0 z-[300] transform -translate-y-full transition-transform duration-300">
+        <div id="connectionMsg" class="bg-red-500 text-white text-xs font-bold uppercase tracking-widest text-center py-2 shadow-lg flex items-center justify-center gap-2">
+            <i class="ph-fill ph-wifi-slash"></i>
+            <span>No Internet Connection - Offline Mode Active</span>
+        </div>
+    </div>
+
     <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-3 px-6 py-3 rounded-full bg-slate-900/90 backdrop-blur-md text-white shadow-2xl translate-y-[-150px] transition-all duration-500 w-max max-w-[90%]">
         <div id="toastDot" class="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80] shrink-0"></div>
         <span id="toastMsg" class="text-sm font-bold truncate">Ready</span>
@@ -79,7 +86,7 @@
     
     <div id="offlineBadge" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[240] hidden transition-all">
         <div class="bg-amber-100 border border-amber-200 shadow-xl text-amber-800 px-4 py-2 rounded-full flex items-center gap-3 animate-pulse">
-            <i class="ph-fill ph-wifi-slash"></i>
+            <i class="ph-fill ph-cloud-arrow-up"></i>
             <span class="text-xs font-bold uppercase tracking-wider"><span id="queueCount">0</span> Pending Syncs</span>
         </div>
     </div>
@@ -139,7 +146,7 @@
         <div class="px-6 mt-4 anim-enter delay-100 relative z-30 space-y-3">
             
             <div id="adminMealControl" class="hidden relative group">
-                <button onclick="toggleDropdown(event)" id="dropdownTrigger" class="glass w-full p-2 rounded-3xl flex items-center hover:bg-white/80 transition-colors relative z-10">
+                <button onclick="toggleDropdown(event, 'dropdownMenu')" id="dropdownTrigger" class="glass w-full p-2 rounded-3xl flex items-center hover:bg-white/80 transition-colors relative z-10">
                     <div class="w-12 h-12 rounded-2xl bg-[#effaf6] flex items-center justify-center ml-1">
                         <i id="mealIconDisplay" class="ph-fill ph-clock text-[#57C785] text-xl"></i>
                     </div>
@@ -218,11 +225,50 @@
                     <div onclick="downloadDailyReport()" class="glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer hover:scale-105 active:scale-95">
                         <i class="ph-fill ph-download-simple text-blue-600 text-2xl group-hover:scale-110 transition-transform"></i>
                     </div>
+                    
                     <button onclick="toggleGlobalLock()" id="masterLockBtn" class="col-span-2 glass p-3 rounded-3xl flex flex-col items-center justify-center gap-1 transition-all group relative overflow-hidden hover:scale-[1.02] active:scale-[0.98]">
                         <div id="masterLockBg" class="absolute inset-0 bg-green-100/50 transition-colors duration-500"></div>
                         <i id="masterLockIcon" class="ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all duration-300"></i>
                         <span id="masterLockText" class="text-[10px] font-bold text-green-700 uppercase tracking-wider relative z-10">Scanners Active</span>
                     </button>
+
+                    <div class="col-span-4 relative">
+                        <button onclick="toggleDropdown(event, 'dangerMenu')" class="w-full glass p-3 rounded-3xl flex items-center justify-center gap-3 transition-all hover:bg-red-50 group hover:scale-[1.01] active:scale-[0.99]">
+                            <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center group-hover:bg-red-500 transition-colors">
+                                <i class="ph-bold ph-trash text-red-500 group-hover:text-white transition-colors"></i>
+                            </div>
+                            <span class="text-sm font-bold text-red-600/80 uppercase tracking-wider">Reset Data</span>
+                            <i class="ph-bold ph-caret-down text-red-300"></i>
+                        </button>
+                        
+                        <div id="dangerMenu" class="hidden absolute top-full left-0 right-0 mt-2 glass rounded-[2rem] p-2 shadow-2xl origin-top z-50 flex-col gap-1 border-2 border-red-100">
+                             <div class="px-4 py-2 text-[10px] font-bold text-red-400 uppercase tracking-widest text-center">Select Action</div>
+                             
+                             <button onclick="clearDatabase('scans')" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-4 text-left group">
+                                <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><i class="ph-fill ph-clock-counter-clockwise text-red-500 text-lg"></i></div>
+                                <div>
+                                    <span class="font-bold text-slate-700 block text-sm">Clear Today's Scans</span>
+                                    <span class="text-[10px] text-slate-400 font-bold">Resets meal counters only</span>
+                                </div>
+                             </button>
+
+                             <button onclick="clearDatabase('users')" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-4 text-left group">
+                                <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><i class="ph-fill ph-users-three text-red-500 text-lg"></i></div>
+                                <div>
+                                    <span class="font-bold text-slate-700 block text-sm">Wipe Master List</span>
+                                    <span class="text-[10px] text-slate-400 font-bold">Deletes all ID data</span>
+                                </div>
+                             </button>
+
+                             <button onclick="clearDatabase('all')" class="w-full p-3 bg-red-500 hover:bg-red-600 rounded-2xl flex items-center gap-4 text-left mt-1 shadow-md">
+                                <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center"><i class="ph-fill ph-warning text-white text-lg"></i></div>
+                                <div>
+                                    <span class="font-bold text-white block text-sm">Factory Reset</span>
+                                    <span class="text-[10px] text-red-100 font-bold">Delete EVERYTHING</span>
+                                </div>
+                             </button>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="glass rounded-[2.5rem] p-6 relative z-0">
@@ -242,7 +288,7 @@
 
 <script>
     /* =========================================
-       1. FIREBASE CONFIGURATION
+       1. FIREBASE & GLOBALS
        ========================================= */
     const firebaseConfig = {
         apiKey: "AIzaSyDlgdYJ9-3ELhEjLz8EQJQK18ghlWhR-jo",
@@ -255,9 +301,6 @@
     const db = firebase.firestore();
     db.enablePersistence().catch(err => console.warn("Persistence Error", err));
 
-    /* =========================================
-       2. STATE & GLOBALS
-       ========================================= */
     let currentMeal = "";
     let isGlobalLocked = false;
     let scanner = null;
@@ -266,13 +309,45 @@
     let isSignup = false;
     let wakeLock = null;
     let audioCtx = null;
-    let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
     
-    // CACHE (Used ONLY for scanner lookup, not search bar)
+    // OFFLINE QUEUE & CACHE
+    let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
     let allUsersCache = [];
     let isCacheLoaded = false;
+    const localSessionCache = new Set(); 
+
+    // Helper: Timeout for network requests to prevent hanging
+    const withTimeout = (promise, ms = 2500) => {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Network Timeout")), ms))
+        ]);
+    };
 
     setTimeout(() => { document.getElementById('splash').classList.add('splash-exit'); setTimeout(() => document.getElementById('splash').remove(), 800); }, 2000);
+
+    /* =========================================
+       2. OFFLINE ALERT LOGIC
+       ========================================= */
+    window.addEventListener('online', updateConnectionStatus);
+    window.addEventListener('offline', updateConnectionStatus);
+
+    function updateConnectionStatus() {
+        const banner = document.getElementById('connectionBanner');
+        const msgBox = document.getElementById('connectionMsg');
+        
+        if (navigator.onLine) {
+            msgBox.className = "bg-green-500 text-white text-xs font-bold uppercase tracking-widest text-center py-2 shadow-lg flex items-center justify-center gap-2";
+            msgBox.innerHTML = '<i class="ph-fill ph-wifi-high"></i><span>Connection Restored</span>';
+            banner.style.transform = "translateY(0)";
+            setTimeout(() => banner.style.transform = "translateY(-100%)", 3000);
+            processQueue(); // Auto sync when back online
+        } else {
+            msgBox.className = "bg-red-500 text-white text-xs font-bold uppercase tracking-widest text-center py-2 shadow-lg flex items-center justify-center gap-2";
+            msgBox.innerHTML = '<i class="ph-fill ph-wifi-slash"></i><span>No Internet - Offline Mode Active</span>';
+            banner.style.transform = "translateY(0)";
+        }
+    }
 
     /* =========================================
        3. UTILITIES
@@ -314,6 +389,7 @@
             document.getElementById('dashboard').classList.remove('hidden');
             initDashboard(user.uid);
             setupListeners();
+            updateConnectionStatus(); // Check initial status
         } else {
             document.getElementById('authScreen').classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('dashboard').classList.add('hidden');
@@ -390,19 +466,18 @@
             document.getElementById('volunteerPanel').style.display = 'block';
             document.getElementById('adminMealControl').style.display = 'block';
             loadUsers();
-            preloadUserData(); // For Admin Scan
+            preloadUserData();
         } else if (role === 'volunteer') {
             document.getElementById('volunteerPanel').style.display = 'block';
             document.getElementById('volunteerMealDisplay').style.display = 'flex';
             updateOfflineUI(); 
-            preloadUserData(); // For Volunteer Scan
+            preloadUserData();
         }
     }
 
     async function preloadUserData() {
         if(isCacheLoaded) return;
         try {
-            // DOWNLOAD ONCE: Get all ~875 users so scans are instant
             const snap = await db.collection('allowed_ids').get();
             allUsersCache = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             isCacheLoaded = true;
@@ -411,11 +486,15 @@
     }
 
     /* =========================================
-       6. SCANNER & LOGIC
+       6. SCANNER LOGIC (BULLETPROOF)
        ========================================= */
     async function startScanner() {
         if (scanner || isGlobalLocked) return;
-        initAudio();
+        
+        // Ensure Audio is Ready
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        
         try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
         
         document.getElementById('startOverlay').classList.add('opacity-0', 'pointer-events-none');
@@ -444,69 +523,93 @@
         if (isProcessing) return;
         
         const id = text.trim().toUpperCase();
+        if (id.length < 2) return; 
+
         isProcessing = true;
         if(scanner) { scanner.pause(); document.getElementById('scannerLaser').classList.add('hidden'); }
 
+        const today = getTodayDate();
+        const recordKey = `${currentMeal}_${today}`; 
+        let isOfflineMode = !navigator.onLine;
+
         try {
-            // 1. FAST LOCAL CHECK
+            if (localSessionCache.has(`${id}_${recordKey}`)) {
+                const cachedUser = allUsersCache.find(u => u.id === id) || {};
+                throw { type: 'DUPLICATE', person: cachedUser, msg: "Scanned locally just now" };
+            }
+
             let person = allUsersCache.find(u => u.id === id);
             
-            // 2. NETWORK FALLBACK (Rare, only if new users added mid-event)
-            if(!person) {
-                const idDoc = await db.collection('allowed_ids').doc(id).get();
-                if(!idDoc.exists) throw new Error("ID Not Recognized");
-                person = idDoc.data();
+            if (!person && !isOfflineMode) {
+                try {
+                    const doc = await withTimeout(db.collection('allowed_ids').doc(id).get(), 2000);
+                    if (doc.exists) person = doc.data();
+                } catch (e) { isOfflineMode = true; }
+            }
+            if (!person) person = { name: "Unregistered ID", category: "Guest", department: "N/A" };
+
+            if (!isOfflineMode) {
+                try {
+                    const snap = await withTimeout(db.collection('meal_records').doc(id).get(), 2500);
+                    const data = snap.exists ? snap.data().meals || {} : {};
+                    if (data[recordKey]) {
+                        throw { type: 'DUPLICATE', person: person, msg: `Served at ${data[recordKey].time}` };
+                    }
+                } catch (e) {
+                    if (e.type === 'DUPLICATE') throw e;
+                    isOfflineMode = true;
+                }
             }
 
-            // 3. CHECK DOUBLE DIPPING
-            const ref = db.collection('meal_records').doc(id);
-            const snap = await ref.get();
-            const data = snap.exists ? snap.data().meals || {} : {};
-            const today = getTodayDate();
-            const recordKey = `${currentMeal}_${today}`; 
-
-            if(data[recordKey]) {
-                showResult(false, {
-                    title: "ALREADY SERVED", msg: `Served at ${data[recordKey].time}`,
-                    name: person.name, cat: person.category || 'Guest', id: id, dept: person.department, info: person.info
-                });
+            if (isOfflineMode) {
+                addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: today, personName: person.name });
+                finishScan(true, person, id, "Saved Offline");
             } else {
-                await robustWrite(id, person, ref, recordKey);
-                showResult(true, {
-                    title: "ACCESS GRANTED", msg: "Meal Authorized",
-                    name: person.name, cat: person.category || 'Guest', id: id, dept: person.department, info: person.info
-                });
+                try {
+                    await withTimeout(performCloudWrite(id, person, recordKey), 3000);
+                    finishScan(true, person, id, "Authorized");
+                } catch (e) {
+                    addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: today, personName: person.name });
+                    finishScan(true, person, id, "Saved Offline (Retry)");
+                }
             }
+            localSessionCache.add(`${id}_${recordKey}`);
 
         } catch (e) {
-            showResult(false, {
-                title: "INVALID ID", msg: e.message || "Unknown Error",
-                name: "Unknown", cat: "Error", id: id, dept: "-", info: "-"
-            });
+            if (e.type === 'DUPLICATE') {
+                showResult(false, {
+                    title: "ALREADY SERVED", msg: e.msg,
+                    name: e.person.name || "Unknown", cat: e.person.category || "-", id: id, dept: e.person.department
+                });
+            } else {
+                showResult(false, {
+                    title: "ERROR", msg: "Invalid ID / Error",
+                    name: "Unknown", cat: "Error", id: id, dept: "-"
+                });
+            }
         }
     }
-    
-    async function robustWrite(id, person, ref, recordKey) {
-        const payload = { 
-            id: id, timestamp: new Date().getTime(), meal: currentMeal, date: getTodayDate(), personName: person.name 
-        };
 
-        if (navigator.onLine) {
-            try {
-                const batch = db.batch();
-                batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: payload.date } } }, { merge: true });
-                batch.set(db.collection('stats').doc('counts'), { [recordKey]: firebase.firestore.FieldValue.increment(1), 'total_scans_ever': firebase.firestore.FieldValue.increment(1) }, { merge: true });
-                await batch.commit();
-            } catch (e) {
-                addToQueue(payload);
-            }
-        } else {
-            addToQueue(payload);
-        }
+    function finishScan(success, person, id, msg) {
+        showResult(success, {
+            title: "ACCESS GRANTED", msg: msg,
+            name: person.name, cat: person.category, id: id, dept: person.department
+        });
+    }
+
+    async function performCloudWrite(id, person, recordKey) {
+        const batch = db.batch();
+        const ref = db.collection('meal_records').doc(id);
+        batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: getTodayDate() } } }, { merge: true });
+        batch.set(db.collection('stats').doc('counts'), { 
+            [recordKey]: firebase.firestore.FieldValue.increment(1), 
+            'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
+        }, { merge: true });
+        return batch.commit();
     }
 
     /* =========================================
-       7. RESULT UI
+       7. UI & RESULTS
        ========================================= */
     function showResult(success, data) {
         const modal = document.getElementById('resultModal');
@@ -553,25 +656,34 @@
     }
 
     /* =========================================
-       8. SYNC & UPLOAD
+       8. SYNC & QUEUE
        ========================================= */
-    function addToQueue(data) { offlineQueue.push(data); localStorage.setItem('mealQueue', JSON.stringify(offlineQueue)); updateOfflineUI(); toast("Saved Offline", "info"); }
+    function addToQueue(data) { 
+        offlineQueue.push(data); 
+        localStorage.setItem('mealQueue', JSON.stringify(offlineQueue)); 
+        updateOfflineUI(); 
+    }
     
     async function processQueue() {
         if (!navigator.onLine || offlineQueue.length === 0) return;
         document.getElementById('queueCount').innerText = "Syncing...";
-        const chunk = offlineQueue.slice(0, 400); // 400 Batch limit
+        const chunk = offlineQueue.slice(0, 200); 
         const batch = db.batch();
-        
         chunk.forEach(item => {
+            if(!item.id || !item.meal) return;
             const ref = db.collection('meal_records').doc(item.id);
             const k = `${item.meal}_${item.date}`;
             batch.set(ref, { meals: { [k]: { time: new Date(item.timestamp).toLocaleTimeString(), date: item.date } } }, { merge: true });
             batch.set(db.collection('stats').doc('counts'), { [k]: firebase.firestore.FieldValue.increment(1), 'total_scans_ever': firebase.firestore.FieldValue.increment(1) }, { merge: true });
         });
-
-        try { await batch.commit(); offlineQueue.splice(0, chunk.length); localStorage.setItem('mealQueue', JSON.stringify(offlineQueue)); updateOfflineUI(); toast("Synced Data", "success"); if(offlineQueue.length>0) processQueue(); }
-        catch (e) { console.error(e); }
+        try { 
+            await batch.commit(); 
+            offlineQueue.splice(0, chunk.length); 
+            localStorage.setItem('mealQueue', JSON.stringify(offlineQueue)); 
+            updateOfflineUI(); 
+            toast("Synced Batch", "success"); 
+            if(offlineQueue.length > 0) setTimeout(processQueue, 500);
+        } catch (e) { console.error(e); }
     }
 
     function updateOfflineUI() {
@@ -580,7 +692,7 @@
         else { badge.classList.add('hidden'); badge.classList.remove('flex'); }
     }
 
-    // EXCEL UPLOAD
+    // EXCEL IMPORT/EXPORT
     function uploadExcel(input) {
         if(!input.files[0]) return;
         const r = new FileReader();
@@ -600,12 +712,11 @@
             });
             await batch.commit();
             toast(`Imported ${count} IDs`, "success");
-            preloadUserData(); // Reload cache
+            preloadUserData();
         };
         r.readAsArrayBuffer(input.files[0]);
     }
     
-    // EXPORT
     async function downloadDailyReport() {
         toast("Generating Log...", "info"); 
         const today = getTodayDate(); 
@@ -625,14 +736,64 @@
         toast("Downloaded", "success"); 
     }
 
-    // UI Helpers
-    function toggleDropdown(e) { e.stopPropagation(); document.getElementById('dropdownMenu').classList.toggle('hidden'); }
-    function closeDropdown(e) { if(!document.getElementById('dropdownMenu').contains(e.target)) document.getElementById('dropdownMenu').classList.add('hidden'); }
-    function adminSetGlobalMeal(val) { db.collection('settings').doc('global').set({currentMeal: val}, {merge: true}).then(() => toast("Session Updated", "success")); closeDropdown({target: document.body}); }
+    // UI Helpers & Dropdown Logic
+    function toggleDropdown(e, menuId) { 
+        e.stopPropagation(); 
+        document.querySelectorAll('[id$="Menu"]').forEach(el => {
+            if(el.id !== menuId) el.classList.add('hidden');
+        });
+        document.getElementById(menuId).classList.toggle('hidden'); 
+    }
+    
+    function closeAllDropdowns(e) { 
+        document.querySelectorAll('[id$="Menu"]').forEach(el => {
+            if(!el.contains(e.target) && !e.target.closest('button')) el.classList.add('hidden');
+        });
+    }
+    
+    function adminSetGlobalMeal(val, icon, color) { 
+        document.getElementById('mealLabel').innerText = val;
+        document.getElementById('mealIconDisplay').className = `ph-fill ${icon} text-xl ${color}`;
+        db.collection('settings').doc('global').set({currentMeal: val}, {merge: true})
+        .then(() => toast("Session Updated", "success")).catch(() => toast("Failed", "error")); 
+        closeAllDropdowns({target: document.body}); 
+    }
+
+    /* =========================================
+       9. FIXED LOCK LOGIC & DB CLEARANCE
+       ========================================= */
     function toggleGlobalLock() { 
         db.collection('settings').doc('global').set({ scannerLocked: !isGlobalLocked }, { merge: true })
         .then(() => toast(!isGlobalLocked ? "All Scanners Locked" : "Unlocked", !isGlobalLocked ? "error" : "success")); 
     }
+    
+    function updateGlobalLockState(locked) {
+        isGlobalLocked = locked;
+        const icon = document.getElementById('masterLockIcon');
+        const text = document.getElementById('masterLockText');
+        const bg = document.getElementById('masterLockBg');
+        
+        if(locked) {
+            // LOCKED STATE (RED)
+            icon.classList.remove('ph-lock-key-open', 'text-green-600');
+            icon.classList.add('ph-lock-key', 'text-red-600');
+            text.innerText = "LOCKED";
+            text.classList.remove('text-green-700');
+            text.classList.add('text-red-700');
+            bg.className = "absolute inset-0 bg-red-200 transition-colors duration-500";
+            document.getElementById('adminLockOverlay').classList.remove('hidden'); 
+        } else {
+            // UNLOCKED STATE (GREEN)
+            icon.classList.remove('ph-lock-key', 'text-red-600');
+            icon.classList.add('ph-lock-key-open', 'text-green-600');
+            text.innerText = "SCANNERS ACTIVE";
+            text.classList.remove('text-red-700');
+            text.classList.add('text-green-700');
+            bg.className = "absolute inset-0 bg-green-100/50 transition-colors duration-500";
+            document.getElementById('adminLockOverlay').classList.add('hidden'); 
+        }
+    }
+
     function updateLocalMealState(meal) { 
         currentMeal = meal; 
         document.getElementById('mealLabel').innerText = meal; 
@@ -643,12 +804,48 @@
         if(meal==='Snacks') { iconClass='ph-cookie'; colorClass='text-amber-500'; }
         document.getElementById('mealIconDisplay').parentElement.innerHTML = `<i id="mealIconDisplay" class="ph-fill ${iconClass} text-xl ${colorClass}"></i>`;
     }
-    function updateGlobalLockState(locked) {
-        isGlobalLocked = locked;
-        const txt = document.getElementById('masterLockText');
-        if(locked) { document.getElementById('adminLockOverlay').classList.remove('hidden'); txt.innerText = "All Locked"; document.getElementById('masterLockBg').className = "absolute inset-0 bg-red-100 transition-colors duration-500"; }
-        else { document.getElementById('adminLockOverlay').classList.add('hidden'); txt.innerText = "Scanners Active"; document.getElementById('masterLockBg').className = "absolute inset-0 bg-green-100/50 transition-colors duration-500"; }
+
+    // DANGER ZONE FUNCTIONS
+    async function clearDatabase(mode) {
+        const msg = mode === 'scans' ? "Delete all MEAL RECORDS? This cannot be undone." : 
+                   mode === 'users' ? "Wipe the MASTER ID LIST? You will need to re-upload Excel." :
+                   "FACTORY RESET? This will delete ALL data.";
+        
+        if(!confirm(msg)) return;
+        toast("Deleting...", "error");
+        
+        try {
+            if (mode === 'scans' || mode === 'all') {
+                await deleteCollection('meal_records');
+                // Reset stats count
+                await db.collection('stats').doc('counts').set({});
+            }
+            if (mode === 'users' || mode === 'all') {
+                await deleteCollection('allowed_ids');
+            }
+            if (mode === 'all') {
+                await deleteCollection('users'); // Optional, keeps admin but deletes volunteers
+            }
+            toast("Database Cleared", "success");
+            setTimeout(() => window.location.reload(), 1500);
+        } catch(e) {
+            console.error(e);
+            toast("Delete Failed: " + e.message, "error");
+        }
     }
+
+    async function deleteCollection(path) {
+        const ref = db.collection(path);
+        const snapshot = await ref.get();
+        if (snapshot.size === 0) return;
+
+        const batch = db.batch();
+        snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+    }
+
     function loadUsers() { 
         const l = document.getElementById('userList'); l.innerHTML = ""; 
         db.collection('users').orderBy('createdAt').get().then(s => { 
