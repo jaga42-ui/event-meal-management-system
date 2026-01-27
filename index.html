@@ -875,15 +875,21 @@
             return;
         }
 
-        // Render sorted list
+        // Render sorted list with NAME MAPPING logic
         const html = Object.entries(breakdown)
             .sort((a,b) => b[1] - a[1]) // Sort by count descending
-            .map(([cat, count]) => `
+            .map(([cat, count]) => {
+                let displayCat = cat;
+                // --- CUSTOM MAPPING FOR DISPLAY ---
+                if(cat === 'Extra') displayCat = 'Participants+Volunteers list -II';
+                // ----------------------------------
+                
+                return `
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span class="font-bold text-slate-700 text-sm">${cat}</span>
+                    <span class="font-bold text-slate-700 text-sm">${displayCat}</span>
                     <span class="font-mono font-bold text-[#2A7B9B] bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100">${count}</span>
                 </div>
-            `).join('');
+            `}).join('');
             
         container.innerHTML = html;
     }
@@ -1245,8 +1251,8 @@
 
     async function clearDatabase(mode) {
         const msg = mode === 'scans' ? "Delete ALL SCAN LOGS? This cannot be undone." : 
-                   mode === 'users' ? "Wipe the MASTER ID LIST? You will need to re-upload Excel." :
-                   "FACTORY RESET? This will delete ALL data.";
+                    mode === 'users' ? "Wipe the MASTER ID LIST? You will need to re-upload Excel." :
+                    "FACTORY RESET? This will delete ALL data.";
         
         if(!confirm(msg)) return;
         toast("Deleting...", "error");
