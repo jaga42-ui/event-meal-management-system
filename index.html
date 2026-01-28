@@ -478,17 +478,15 @@
     let isSignup = false;
     let wakeLock = null;
     let audioCtx = null;
-    let currentStatsDoc = null; // Store for analytics
+    let currentStatsDoc = null; 
     
-    // OFFLINE QUEUE & CACHE
     let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
     let allUsersCache = [];
-    let recentScans = []; // New history array
+    let recentScans = []; 
     let isCacheLoaded = false;
     
     const localSessionCache = new Map(); 
 
-    // Helper: Timeout for network requests to prevent hanging
     const withTimeout = (promise, ms = 2500) => {
         return Promise.race([
             promise,
@@ -581,7 +579,7 @@
 
         db.collection('stats').doc('counts').onSnapshot(doc => {
             if (doc.exists) {
-                currentStatsDoc = doc.data(); // Cache for analytics
+                currentStatsDoc = doc.data(); 
                 if (currentMeal) {
                     const sessionKey = `${currentMeal}_${getTodayDate()}`;
                     document.getElementById('admSessionCount').innerText = currentStatsDoc[sessionKey] || 0;
@@ -660,7 +658,7 @@
     }
 
     /* =========================================
-       6. SCANNER LOGIC (STRICT MODE APPLIED)
+       6. SCANNER LOGIC (STRICT)
        ========================================= */
     async function startScanner() {
         if (scanner || isGlobalLocked) return;
@@ -672,7 +670,7 @@
         
         document.getElementById('startOverlay').classList.add('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.remove('hidden');
-        document.getElementById('recentScansContainer').classList.remove('hidden'); // Show History
+        document.getElementById('recentScansContainer').classList.remove('hidden'); 
         document.getElementById('scannerLaser').classList.remove('hidden');
 
         scanner = new Html5Qrcode("reader");
@@ -688,7 +686,7 @@
         
         document.getElementById('startOverlay').classList.remove('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.add('hidden');
-        document.getElementById('recentScansContainer').classList.add('hidden'); // Hide History
+        document.getElementById('recentScansContainer').classList.add('hidden'); 
         document.getElementById('scannerLaser').classList.add('hidden');
         document.getElementById('reader').innerHTML = "";
     }
@@ -713,7 +711,6 @@
                 const cachedUser = allUsersCache.find(u => u.id === id) || {};
                 
                 addToRecentScans(cachedUser.name || "Unknown", "DUPLICATE");
-                
                 throw { type: 'DUPLICATE', person: cachedUser, msg: `Served at ${cachedTime}` };
             }
 
@@ -726,11 +723,8 @@
                 } catch (e) { isOfflineMode = true; }
             }
             
-            // ==========================================
             // STRICT MODE: DENY IF NOT FOUND
-            // ==========================================
             if (!person) {
-                // Deny Access immediately. No Guest fallback.
                 beep(200, 'sawtooth');
                 showResult(false, {
                     title: "ACCESS DENIED", 
@@ -740,12 +734,10 @@
                     id: id, 
                     dept: "Contact Help Desk"
                 });
-                return; // STOP EXECUTION
+                return; 
             }
 
-            // ==========================================
-            // STRICT MODE: BLOCK 'GUEST' CATEGORY
-            // ==========================================
+            // STRICT MODE: BLOCK 'GUEST'
             if (person.category === 'Guest') {
                 beep(200, 'sawtooth');
                 showResult(false, {
@@ -756,16 +748,15 @@
                     id: id, 
                     dept: "Update Excel Sheet"
                 });
-                return; // STOP EXECUTION
+                return; 
             }
-            // ==========================================
 
             if (!isOfflineMode) {
                 try {
                     const snap = await withTimeout(db.collection('meal_records').doc(id).get(), 2500);
                     const data = snap.exists ? snap.data().meals || {} : {};
                     if (data[recordKey]) {
-                        addToRecentScans(person.name, "DUPLICATE"); // FEATURE 1
+                        addToRecentScans(person.name, "DUPLICATE"); 
                         throw { type: 'DUPLICATE', person: person, msg: `Served at ${data[recordKey].time}` };
                     }
                 } catch (e) {
@@ -800,7 +791,6 @@
                     name: e.person.name || "Unknown", cat: e.person.category || "-", id: id, dept: e.person.department
                 });
             } else {
-                // Generic error catch
                 addToRecentScans("Error", "ERROR"); 
                 showResult(false, {
                     title: "ERROR", msg: "Processing Error",
@@ -821,16 +811,15 @@
         const batch = db.batch();
         const ref = db.collection('meal_records').doc(id);
         
-        // ANALYTICS KEY GENERATION
-        const safeCat = (person.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '');
+        // Ensure separation for new scans: "Team Manager" -> "Team_Manager"
+        const safeCat = (person.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_');
         const catKey = `${recordKey}_CAT_${safeCat}`; 
 
         batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: getTodayDate() } } }, { merge: true });
         
-        // Update both TOTAL and CATEGORY counters
         batch.set(db.collection('stats').doc('counts'), { 
             [recordKey]: firebase.firestore.FieldValue.increment(1), 
-            [catKey]: firebase.firestore.FieldValue.increment(1), // Analytics Increment
+            [catKey]: firebase.firestore.FieldValue.increment(1), 
             'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
         }, { merge: true });
         
@@ -847,7 +836,6 @@
         beep(success ? 800 : 200, success ? 'sine' : 'sawtooth');
         const icon = success ? 'ph-check-circle' : 'ph-warning-circle';
         
-        // LOGIC FOR DEPARTMENT vs UNIVERSITY LABEL
         const isVol = (data.cat || "").toLowerCase() === 'volunteer';
         const deptLabel = isVol ? 'Department' : 'University / Org';
 
@@ -915,7 +903,6 @@
             </div>
         `;
         
-        // Add to array and DOM
         recentScans.unshift(itemHTML);
         if(recentScans.length > 3) recentScans.pop();
         
@@ -923,7 +910,7 @@
     }
 
     /* =========================================
-       9. FEATURE 2: ANALYTICS MODAL
+       9. FEATURE 2: ANALYTICS MODAL (CLEANED)
        ========================================= */
     function renderAnalytics() {
         const container = document.getElementById('analyticsContent');
@@ -938,11 +925,27 @@
         const breakdown = {};
         let totalCheck = 0;
 
-        // Parse keys from stats doc
         Object.keys(currentStatsDoc).forEach(key => {
             if(key.startsWith(prefix)) {
-                const catName = key.replace(prefix, '');
-                breakdown[catName] = currentStatsDoc[key];
+                let catName = key.replace(prefix, '');
+                
+                // 1. Block Guests
+                if(catName === 'Guest') return;
+
+                // 2. Normalize Names
+                catName = catName.replace(/_/g, ' '); // "Team_Manager" -> "Team Manager"
+                
+                // 3. Fix Squashed/Bad Names
+                if(catName === 'DSWTeamManager' || catName === 'TeamManager') catName = 'Team Manager';
+                if(catName === 'Extra') catName = 'Participant & Volunteer List - II';
+                
+                // 4. Fallback for Partial Matches on List II
+                if(catName.includes('Participants') && catName.includes('Volunteers') && catName.includes('II')) {
+                     catName = 'Participant & Volunteer List - II';
+                }
+
+                // 5. Merge Counts
+                breakdown[catName] = (breakdown[catName] || 0) + currentStatsDoc[key];
                 totalCheck += currentStatsDoc[key];
             }
         });
@@ -954,18 +957,12 @@
             return;
         }
 
-        // Render sorted list with NAME MAPPING logic
         const html = Object.entries(breakdown)
             .sort((a,b) => b[1] - a[1]) // Sort by count descending
             .map(([cat, count]) => {
-                let displayCat = cat;
-                // --- CUSTOM MAPPING FOR DISPLAY ---
-                if(cat === 'Extra') displayCat = 'Participants+Volunteers list -II';
-                // ----------------------------------
-                
                 return `
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span class="font-bold text-slate-700 text-sm">${displayCat}</span>
+                    <span class="font-bold text-slate-700 text-sm">${cat}</span>
                     <span class="font-mono font-bold text-[#2A7B9B] bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100">${count}</span>
                 </div>
             `}).join('');
@@ -1013,7 +1010,6 @@
         }
 
         list.innerHTML = matches.map(u => {
-            // Determine Icon based on category
             const isVol = (u.category || "").toLowerCase() === 'volunteer';
             const iconClass = isVol ? 'ph-books' : 'ph-buildings';
             
@@ -1106,15 +1102,14 @@
             const ref = db.collection('meal_records').doc(item.id);
             const k = `${item.meal}_${item.date}`;
             
-            // ANALYTICS SYNC LOGIC
-            const safeCat = (item.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '');
+            const safeCat = (item.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_');
             const catKey = `${k}_CAT_${safeCat}`; 
 
             batch.set(ref, { meals: { [k]: { time: new Date(item.timestamp).toLocaleTimeString(), date: item.date } } }, { merge: true });
             
             batch.set(db.collection('stats').doc('counts'), { 
                 [k]: firebase.firestore.FieldValue.increment(1), 
-                [catKey]: firebase.firestore.FieldValue.increment(1), // Sync Category Count
+                [catKey]: firebase.firestore.FieldValue.increment(1),
                 'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
             }, { merge: true });
         });
@@ -1160,10 +1155,10 @@
                     if (col0.toLowerCase().includes('unique id')) return;
 
                     const id = col0.toUpperCase();
-                    // STRICT: Removed 'Guest' default. Using 'Participant' if empty.
+                    // STRICT: No Guest default
                     const userData = {
                         active: true,
-                        category: row[1] || "Participant", 
+                        category: row[1] || "Unspecified", 
                         name: row[2] || "Unknown",
                         department: row[3] || "N/A",
                         importedAt: new Date()
@@ -1251,14 +1246,12 @@
     }
 
     /* =========================================
-       UPDATED: PDF FIX (Line Height & Scroll)
+       UPDATED: PDF FIX (Cleaned Up Names & Merged)
        ========================================= */
     async function downloadReceiptPDF() {
-        // 1. Check Data
         if (!currentMeal || !currentStatsDoc) return toast("No data available", "error");
         toast("Generating High-Res PDF...", "info");
 
-        // 2. Prepare Data
         const prefix = `${currentMeal}_${getTodayDate()}_CAT_`;
         const breakdown = {};
         let totalCheck = 0;
@@ -1266,20 +1259,28 @@
         Object.keys(currentStatsDoc).forEach(key => {
             if (key.startsWith(prefix)) {
                 let catName = key.replace(prefix, '');
-                if (catName === 'Extra') catName = 'Participants list -II';
-                breakdown[catName] = currentStatsDoc[key];
+                
+                if(catName === 'Guest') return;
+
+                // MERGING LOGIC
+                catName = catName.replace(/_/g, ' '); 
+                if(catName === 'DSWTeamManager' || catName === 'TeamManager') catName = 'Team Manager';
+                if(catName === 'Extra') catName = 'Participant & Volunteer List - II';
+                if(catName.includes('Participants') && catName.includes('Volunteers') && catName.includes('II')) {
+                     catName = 'Participant & Volunteer List - II';
+                }
+
+                breakdown[catName] = (breakdown[catName] || 0) + currentStatsDoc[key];
                 totalCheck += currentStatsDoc[key];
             }
         });
 
-        if (totalCheck === 0) return toast("No scans recorded yet", "error");
+        if (totalCheck === 0) return toast("No authorized scans yet", "error");
 
-        // 3. Populate Template
         document.getElementById('recMeal').innerText = currentMeal;
         document.getElementById('recDate').innerText = getTodayDate();
         document.getElementById('recTotal').innerText = totalCheck;
 
-        // FIX: Removed 'leading-none', added 'leading-normal' and 'pb-1'
         const listHtml = Object.entries(breakdown)
             .sort((a, b) => b[1] - a[1])
             .map(([cat, count]) => `
@@ -1292,34 +1293,26 @@
         
         document.getElementById('recItems').innerHTML = listHtml;
 
-        // 4. Capture Settings
         const element = document.getElementById('receiptTemplate');
-        
-        // Temporarily Show element for capture (Reset transform to ensure clean capture)
         element.classList.remove('opacity-0', '-z-50', 'pointer-events-none'); 
         element.classList.add('z-[9999]', 'opacity-100', 'top-0', 'left-0'); 
 
         try {
-            // High Quality Capture settings with Scroll Fix
             const canvas = await html2canvas(element, { 
                 scale: 4,               
                 useCORS: true,          
                 logging: false,         
                 backgroundColor: '#ffffff', 
                 windowWidth: 350,
-                scrollY: 0,   // <--- IMPORTANT FIX: Prevents cutting off if user scrolled
+                scrollY: 0,
                 scrollX: 0
             });
 
             const imgData = canvas.toDataURL('image/jpeg', 1.0);
-            
-            // Hide element again
             element.classList.add('opacity-0', '-z-50', 'pointer-events-none');
             element.classList.remove('z-[9999]', 'opacity-100');
 
-            // Create PDF
             const { jsPDF } = window.jspdf;
-            
             const imgWidth = 80; 
             const pageHeight = (canvas.height * imgWidth) / canvas.width;
             
@@ -1331,7 +1324,6 @@
 
             pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, pageHeight);
             pdf.save(`Receipt_${currentMeal}_${getTodayDate()}.pdf`);
-            
             toast("High-Res PDF Downloaded", "success");
 
         } catch (err) {
@@ -1406,7 +1398,6 @@
         document.getElementById('mealIconDisplay').parentElement.innerHTML = `<i id="mealIconDisplay" class="ph-fill ${iconClass} text-xl ${colorClass}"></i>`;
     }
 
-    // NEW FUNCTION: RESET TOTAL COUNTER ONLY
     async function resetTotalCounter() {
         if(!confirm("Reset ONLY the 'Total Served' counter to 0?")) return;
         try {
