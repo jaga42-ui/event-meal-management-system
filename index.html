@@ -7,7 +7,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -15,6 +15,9 @@
 
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         body { font-family: 'Outfit', sans-serif; overflow: hidden; }
@@ -255,10 +258,22 @@
                         </button>
                         <div id="downloadMenu" class="hidden absolute top-full left-0 mt-2 w-48 glass rounded-[2rem] p-2 shadow-2xl origin-top z-50 flex-col gap-1 border-2 border-blue-100">
                              <div class="px-4 py-2 text-[10px] font-bold text-blue-400 uppercase tracking-widest text-center">Export</div>
+                             
                              <button onclick="downloadDailyReport()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
                                 <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-file-text text-blue-500"></i></div>
                                 <div><span class="font-bold text-slate-700 text-xs block">Scan Logs</span></div>
                              </button>
+
+                             <button onclick="downloadReceiptPDF()" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-3 text-left group">
+                                <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                                    <i class="ph-fill ph-file-pdf text-red-600"></i>
+                                </div>
+                                <div>
+                                    <span class="font-bold text-slate-700 text-xs block">Receipt PDF</span>
+                                    <span class="text-[9px] text-slate-400 font-bold">Session Breakdown</span>
+                                </div>
+                            </button>
+
                              <button onclick="exportMasterList()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
                                 <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-users text-blue-500"></i></div>
                                 <div><span class="font-bold text-slate-700 text-xs block">Master List</span></div>
@@ -392,8 +407,7 @@
                             <option value="Student Accompanist">Student Accomp.</option>
                             <option value="DSW">DSW</option>
                             <option value="Participants+Volunteers list -II">Participants+Volunteers list -II</option>
-                            <option value="Guest">Guest</option>
-                        </select>
+                            </select>
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Dept / University</label>
@@ -404,6 +418,40 @@
             <button onclick="saveManualUser()" class="w-full mt-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg shadow-purple-200 active:scale-95 transition-all">
                 Save & Sync
             </button>
+        </div>
+    </div>
+
+    <div id="receiptTemplate" class="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none bg-white w-[350px] p-8 text-slate-800 font-mono text-sm border-0 antialiased transform-gpu">
+        <div class="text-center mb-6 border-b-2 border-dashed border-slate-300 pb-5">
+            <div class="font-black text-3xl uppercase tracking-tighter text-slate-900 leading-tight pb-1">MEALPASS</div>
+            <div class="text-[10px] text-slate-500 uppercase tracking-[0.2em] mt-2 font-bold">Event Edition 2026</div>
+        </div>
+        
+        <div class="flex justify-between mb-2 items-center">
+            <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Session</span>
+            <span class="font-black uppercase text-lg leading-tight pb-1" id="recMeal">--</span>
+        </div>
+        <div class="flex justify-between mb-6 items-center">
+            <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Date</span>
+            <span class="font-bold text-slate-700 leading-tight pb-1" id="recDate">--</span>
+        </div>
+
+        <div class="border-b-2 border-dashed border-slate-200 mb-4"></div>
+        
+        <div id="recItems" class="space-y-3 mb-6">
+            </div>
+
+        <div class="border-t-2 border-dashed border-slate-900 pt-4 flex justify-between items-center mt-4">
+            <span class="text-xl font-black tracking-tight leading-normal">TOTAL</span>
+            <span class="text-2xl font-black tracking-tight leading-normal pb-1" id="recTotal">0</span>
+        </div>
+        
+        <div class="mt-10 text-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold tracking-widest mb-3">Authorized System Generated</div>
+            <div class="w-full py-2 border border-slate-200 bg-slate-50 rounded flex items-center justify-center gap-2">
+                 <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                 <span class="text-[10px] uppercase tracking-widest font-bold text-slate-600">Verified & Synced</span>
+            </div>
         </div>
     </div>
 
@@ -612,7 +660,7 @@
     }
 
     /* =========================================
-       6. SCANNER LOGIC
+       6. SCANNER LOGIC (STRICT MODE APPLIED)
        ========================================= */
     async function startScanner() {
         if (scanner || isGlobalLocked) return;
@@ -664,7 +712,6 @@
                 const cachedTime = localSessionCache.get(`${id}_${recordKey}`);
                 const cachedUser = allUsersCache.find(u => u.id === id) || {};
                 
-                // FEATURE 1: Add to History even if duplicate
                 addToRecentScans(cachedUser.name || "Unknown", "DUPLICATE");
                 
                 throw { type: 'DUPLICATE', person: cachedUser, msg: `Served at ${cachedTime}` };
@@ -678,7 +725,40 @@
                     if (doc.exists) person = doc.data();
                 } catch (e) { isOfflineMode = true; }
             }
-            if (!person) person = { name: "Unregistered ID", category: "Guest", department: "N/A" };
+            
+            // ==========================================
+            // STRICT MODE: DENY IF NOT FOUND
+            // ==========================================
+            if (!person) {
+                // Deny Access immediately. No Guest fallback.
+                beep(200, 'sawtooth');
+                showResult(false, {
+                    title: "ACCESS DENIED", 
+                    msg: "ID Not Registered",
+                    name: "Unknown User", 
+                    cat: "Restricted", 
+                    id: id, 
+                    dept: "Contact Help Desk"
+                });
+                return; // STOP EXECUTION
+            }
+
+            // ==========================================
+            // STRICT MODE: BLOCK 'GUEST' CATEGORY
+            // ==========================================
+            if (person.category === 'Guest') {
+                beep(200, 'sawtooth');
+                showResult(false, {
+                    title: "ACCESS DENIED", 
+                    msg: "Guest Category Blocked",
+                    name: person.name, 
+                    cat: "Invalid Category", 
+                    id: id, 
+                    dept: "Update Excel Sheet"
+                });
+                return; // STOP EXECUTION
+            }
+            // ==========================================
 
             if (!isOfflineMode) {
                 try {
@@ -698,7 +778,6 @@
             const nowTime = new Date().toLocaleTimeString();
             localSessionCache.set(`${id}_${recordKey}`, nowTime);
             
-            // FEATURE 1: Add to History
             addToRecentScans(person.name, "SUCCESS");
 
             if (isOfflineMode) {
@@ -721,9 +800,10 @@
                     name: e.person.name || "Unknown", cat: e.person.category || "-", id: id, dept: e.person.department
                 });
             } else {
-                addToRecentScans("Invalid ID", "ERROR"); // FEATURE 1
+                // Generic error catch
+                addToRecentScans("Error", "ERROR"); 
                 showResult(false, {
-                    title: "ERROR", msg: "Invalid ID / Error",
+                    title: "ERROR", msg: "Processing Error",
                     name: "Unknown", cat: "Error", id: id, dept: "-"
                 });
             }
@@ -741,8 +821,7 @@
         const batch = db.batch();
         const ref = db.collection('meal_records').doc(id);
         
-        // FEATURE 2: ANALYTICS KEY GENERATION
-        // Create a safe key for the category (e.g., Breakfast_2026-01-26_Volunteer)
+        // ANALYTICS KEY GENERATION
         const safeCat = (person.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '');
         const catKey = `${recordKey}_CAT_${safeCat}`; 
 
@@ -1055,7 +1134,7 @@
         else { badge.classList.add('hidden'); badge.classList.remove('flex'); }
     }
 
-    // UPDATED EXCEL UPLOAD (Sheet 1 Only)
+    // UPDATED EXCEL UPLOAD (Sheet 1 Only) - STRICT
     function uploadExcel(input) {
         if(!input.files[0]) return;
         const r = new FileReader();
@@ -1081,9 +1160,10 @@
                     if (col0.toLowerCase().includes('unique id')) return;
 
                     const id = col0.toUpperCase();
+                    // STRICT: Removed 'Guest' default. Using 'Participant' if empty.
                     const userData = {
                         active: true,
-                        category: row[1] || "Guest",
+                        category: row[1] || "Participant", 
                         name: row[2] || "Unknown",
                         department: row[3] || "N/A",
                         importedAt: new Date()
@@ -1170,6 +1250,97 @@
         toast("Download Complete", "success");
     }
 
+    /* =========================================
+       UPDATED: PDF FIX (Line Height & Scroll)
+       ========================================= */
+    async function downloadReceiptPDF() {
+        // 1. Check Data
+        if (!currentMeal || !currentStatsDoc) return toast("No data available", "error");
+        toast("Generating High-Res PDF...", "info");
+
+        // 2. Prepare Data
+        const prefix = `${currentMeal}_${getTodayDate()}_CAT_`;
+        const breakdown = {};
+        let totalCheck = 0;
+
+        Object.keys(currentStatsDoc).forEach(key => {
+            if (key.startsWith(prefix)) {
+                let catName = key.replace(prefix, '');
+                if (catName === 'Extra') catName = 'Participants list -II';
+                breakdown[catName] = currentStatsDoc[key];
+                totalCheck += currentStatsDoc[key];
+            }
+        });
+
+        if (totalCheck === 0) return toast("No scans recorded yet", "error");
+
+        // 3. Populate Template
+        document.getElementById('recMeal').innerText = currentMeal;
+        document.getElementById('recDate').innerText = getTodayDate();
+        document.getElementById('recTotal').innerText = totalCheck;
+
+        // FIX: Removed 'leading-none', added 'leading-normal' and 'pb-1'
+        const listHtml = Object.entries(breakdown)
+            .sort((a, b) => b[1] - a[1])
+            .map(([cat, count]) => `
+                <div class="flex justify-between items-end relative z-10">
+                    <span class="text-xs font-bold text-slate-600 truncate max-w-[220px] leading-normal pb-1">${cat}</span>
+                    <div class="flex-1 border-b-2 border-dotted border-slate-300 mx-2 relative -top-1.5 opacity-50"></div>
+                    <span class="font-mono font-bold text-slate-900 leading-normal pb-1">${count}</span>
+                </div>
+            `).join('');
+        
+        document.getElementById('recItems').innerHTML = listHtml;
+
+        // 4. Capture Settings
+        const element = document.getElementById('receiptTemplate');
+        
+        // Temporarily Show element for capture (Reset transform to ensure clean capture)
+        element.classList.remove('opacity-0', '-z-50', 'pointer-events-none'); 
+        element.classList.add('z-[9999]', 'opacity-100', 'top-0', 'left-0'); 
+
+        try {
+            // High Quality Capture settings with Scroll Fix
+            const canvas = await html2canvas(element, { 
+                scale: 4,               
+                useCORS: true,          
+                logging: false,         
+                backgroundColor: '#ffffff', 
+                windowWidth: 350,
+                scrollY: 0,   // <--- IMPORTANT FIX: Prevents cutting off if user scrolled
+                scrollX: 0
+            });
+
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            
+            // Hide element again
+            element.classList.add('opacity-0', '-z-50', 'pointer-events-none');
+            element.classList.remove('z-[9999]', 'opacity-100');
+
+            // Create PDF
+            const { jsPDF } = window.jspdf;
+            
+            const imgWidth = 80; 
+            const pageHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: [imgWidth, pageHeight] 
+            });
+
+            pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, pageHeight);
+            pdf.save(`Receipt_${currentMeal}_${getTodayDate()}.pdf`);
+            
+            toast("High-Res PDF Downloaded", "success");
+
+        } catch (err) {
+            console.error(err);
+            element.classList.add('opacity-0', '-z-50', 'pointer-events-none');
+            toast("PDF Error", "error");
+        }
+    }
+
     async function exportMasterList() {
         toast("Exporting List...", "info");
         const s = await db.collection('allowed_ids').get();
@@ -1209,7 +1380,6 @@
     function updateGlobalLockState(locked) {
         isGlobalLocked = locked;
         const icon = document.getElementById('masterLockIcon');
-        const text = document.getElementById('masterLockIcon'); 
         const bg = document.getElementById('masterLockBg');
         
         if(locked) {
