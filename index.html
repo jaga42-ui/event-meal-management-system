@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
     <title>MealPass - UTSAH 2026</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,12 +15,11 @@
 
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.min.js"></script>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
-        body { font-family: 'Outfit', sans-serif; overflow: hidden; }
+        body { font-family: 'Outfit', sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; }
 
         .custom-bg {
             background: #2A7B9B;
@@ -57,6 +56,7 @@
         
         #reader__scan_region { display: none !important; }
         #reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; border-radius: 40px !important; }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
@@ -187,15 +187,17 @@
         </div>
 
         <main class="flex-1 overflow-y-auto p-6 space-y-6 pb-24 no-scrollbar z-10">
+            
             <div id="volunteerPanel" class="hidden space-y-4 anim-enter delay-200">
-                
                 <div class="relative w-full aspect-square bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white/40 backdrop-blur-sm group">
                     <div id="reader" class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div id="scannerLaser" class="scan-laser hidden"></div>
+                    
                     <div id="adminLockOverlay" class="absolute inset-0 bg-red-900/90 backdrop-blur-md z-[60] flex flex-col items-center justify-center hidden">
                         <div class="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_30px_#ef4444] animate-pulse mb-4"><i class="ph-fill ph-lock-key text-4xl text-white"></i></div>
                         <h2 class="text-2xl font-bold text-white uppercase tracking-widest">Paused</h2>
                     </div>
+
                     <div id="startOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-md z-10">
                         <button onclick="startScanner()" class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.4)] ring-anim hover:scale-105 transition-transform active:scale-95"><i class="ph-fill ph-camera text-3xl text-[#2480D1]"></i></button>
                         <p class="mt-5 text-xs font-bold text-white uppercase tracking-widest">Tap to Activate</p>
@@ -210,7 +212,7 @@
                 <div id="recentScansContainer" class="hidden">
                     <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-2">Recent Scans</div>
                     <div id="recentScansList" class="space-y-2">
-                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -235,6 +237,7 @@
                         <div class="col-span-2 bg-white/5 p-3 rounded-2xl border border-white/5 flex items-center justify-between px-4">
                             <div class="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Registered People</div>
                             <div class="text-2xl font-bold text-white" id="admDatabaseCount">0</div>
+                            <button onclick="preloadUserData()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"><i class="ph-bold ph-arrows-clockwise"></i></button>
                         </div>
                     </div>
                 </div>
@@ -411,7 +414,7 @@
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Dept / University</label>
-                        <input id="newUserDept" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 font-bold text-xs text-slate-800 outline-none" placeholder="Department or University Name">
+                        <input id="newUserDept" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 font-bold text-xs text-slate-800 outline-none" placeholder="Department">
                     </div>
                 </div>
             </div>
@@ -522,7 +525,8 @@
     /* =========================================
        3. UTILITIES
        ========================================= */
-    function getTodayDate() { return new Date().toLocaleDateString('en-CA'); }
+    function getTodayDate() { return new Date().toLocaleDateString('en-CA'); } // ISO Format for Keys
+    function getDisplayDate() { return new Date().toLocaleDateString('en-IN'); } // Display Format for UI
     
     function initAudio() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -648,7 +652,7 @@
     }
 
     async function preloadUserData() {
-        if(isCacheLoaded) return;
+        // Reload even if loaded to ensure sync
         try {
             const snap = await db.collection('allowed_ids').get();
             allUsersCache = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -673,15 +677,29 @@
         document.getElementById('recentScansContainer').classList.remove('hidden'); 
         document.getElementById('scannerLaser').classList.remove('hidden');
 
-        scanner = new Html5Qrcode("reader");
-        await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScan);
-        isScanning = true;
+        try {
+            scanner = new Html5Qrcode("reader");
+            await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScan);
+            isScanning = true;
+        } catch (err) {
+            console.error("Camera Start Error", err);
+            toast("Camera Error: Check Permissions", "error");
+            stopScanner();
+        }
     }
 
     async function stopScanner() {
         if (!scanner) return;
-        try { await scanner.stop(); scanner.clear(); } catch (e) {}
+        try { 
+            if(isScanning) {
+                await scanner.stop(); 
+                scanner.clear(); 
+            }
+        } catch (e) { console.warn("Stop error", e); }
+        
         scanner = null;
+        isScanning = false;
+        
         if (wakeLock) await wakeLock.release();
         
         document.getElementById('startOverlay').classList.remove('opacity-0', 'pointer-events-none');
@@ -701,8 +719,8 @@
         isProcessing = true;
         if(scanner) { scanner.pause(); document.getElementById('scannerLaser').classList.add('hidden'); }
 
-        const today = getTodayDate();
-        const recordKey = `${currentMeal}_${today}`; 
+        const todayKey = getTodayDate(); // ISO YYYY-MM-DD
+        const recordKey = `${currentMeal}_${todayKey}`; 
         let isOfflineMode = !navigator.onLine;
 
         try {
@@ -772,14 +790,14 @@
             addToRecentScans(person.name, "SUCCESS");
 
             if (isOfflineMode) {
-                addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: today, personName: person.name, category: person.category });
+                addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: todayKey, personName: person.name, category: person.category });
                 finishScan(true, person, id, "Saved Offline");
             } else {
                 try {
-                    await withTimeout(performCloudWrite(id, person, recordKey), 3000);
+                    await withTimeout(performCloudWrite(id, person, recordKey, todayKey), 3000);
                     finishScan(true, person, id, "Authorized");
                 } catch (e) {
-                    addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: today, personName: person.name, category: person.category });
+                    addToQueue({ id: id, timestamp: new Date().getTime(), meal: currentMeal, date: todayKey, personName: person.name, category: person.category });
                     finishScan(true, person, id, "Saved Offline (Retry)");
                 }
             }
@@ -807,7 +825,7 @@
         });
     }
 
-    async function performCloudWrite(id, person, recordKey) {
+    async function performCloudWrite(id, person, recordKey, todayKey) {
         const batch = db.batch();
         const ref = db.collection('meal_records').doc(id);
         
@@ -815,7 +833,7 @@
         const safeCat = (person.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_');
         const catKey = `${recordKey}_CAT_${safeCat}`; 
 
-        batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: getTodayDate() } } }, { merge: true });
+        batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: todayKey } } }, { merge: true });
         
         batch.set(db.collection('stats').doc('counts'), { 
             [recordKey]: firebase.firestore.FieldValue.increment(1), 
@@ -941,7 +959,7 @@
                 
                 // 4. Fallback for Partial Matches on List II
                 if(catName.includes('Participants') && catName.includes('Volunteers') && catName.includes('II')) {
-                     catName = 'Participant & Volunteer List - II';
+                      catName = 'Participant & Volunteer List - II';
                 }
 
                 // 5. Merge Counts
@@ -1195,6 +1213,7 @@
     async function downloadDailyReport() {
         toast("Generating Styled Report...", "info");
         const today = getTodayDate();
+        const displayDate = getDisplayDate();
         const s = await db.collection('meal_records').get();
         if (s.empty) return toast("No scans found", "error");
 
@@ -1229,7 +1248,7 @@
         dataRows.sort((a, b) => a[5].v.localeCompare(b[5].v));
 
         const wsData = [
-            [{ v: `MealPass Daily Report - ${today}`, s: styles.title }, null, null, null, null, null], [], 
+            [{ v: `MealPass Daily Report - ${displayDate}`, s: styles.title }, null, null, null, null, null], [], 
             [{ v: "Unique ID", s: styles.header }, { v: "Name", s: styles.header }, { v: "Category", s: styles.header }, { v: "Department", s: styles.header }, { v: "Meal", s: styles.header }, { v: "Time Scanned", s: styles.header }],
             ...dataRows
         ];
@@ -1267,7 +1286,7 @@
                 if(catName === 'DSWTeamManager' || catName === 'TeamManager') catName = 'Team Manager';
                 if(catName === 'Extra') catName = 'Participant & Volunteer List - II';
                 if(catName.includes('Participants') && catName.includes('Volunteers') && catName.includes('II')) {
-                     catName = 'Participant & Volunteer List - II';
+                      catName = 'Participant & Volunteer List - II';
                 }
 
                 breakdown[catName] = (breakdown[catName] || 0) + currentStatsDoc[key];
@@ -1278,7 +1297,7 @@
         if (totalCheck === 0) return toast("No authorized scans yet", "error");
 
         document.getElementById('recMeal').innerText = currentMeal;
-        document.getElementById('recDate').innerText = getTodayDate();
+        document.getElementById('recDate').innerText = getDisplayDate();
         document.getElementById('recTotal').innerText = totalCheck;
 
         const listHtml = Object.entries(breakdown)
@@ -1299,9 +1318,9 @@
 
         try {
             const canvas = await html2canvas(element, { 
-                scale: 4,               
-                useCORS: true,          
-                logging: false,         
+                scale: 4,                
+                useCORS: true,           
+                logging: false,          
                 backgroundColor: '#ffffff', 
                 windowWidth: 350,
                 scrollY: 0,
