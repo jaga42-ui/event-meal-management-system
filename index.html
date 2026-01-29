@@ -60,6 +60,18 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
+        
+        .profile-img-container {
+            width: 100px; height: 100px; 
+            border-radius: 50%; 
+            border: 4px solid white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            background: #f1f5f9;
+            position: absolute;
+            top: 20px; right: 20px;
+        }
+        .profile-img { width: 100%; height: 100%; object-fit: cover; }
     </style>
 </head>
 
@@ -342,8 +354,7 @@
                 <div class="glass rounded-[2.5rem] p-6 relative z-0">
                      <div class="flex justify-between items-center mb-4 border-b border-slate-200/50 pb-3">
                         <span class="font-bold text-slate-700">Team Management</span>
-                        <button onclick="loadUsers()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-[#2480D1] flex items-center justify-center transition-colors hover:rotate-90 duration-500"><i class="ph-bold ph-arrows-clockwise"></i></button>
-                    </div>
+                        <div class="w-6"></div> </div>
                     <div id="userList" class="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar"></div>
                 </div>
             </div>
@@ -481,8 +492,8 @@
     db.enablePersistence({ synchronizeTabs: true }).catch(err => console.warn("Persistence Error", err));
 
     let currentMeal = "";
-    let sessionStartTimestamp = null; // Store session start
-    let sessionTimerInterval = null;  // For the UI timer
+    let sessionStartTimestamp = null; 
+    let sessionTimerInterval = null;  
     let isGlobalLocked = false;
     let scanner = null;
     let isScanning = false;
@@ -491,6 +502,9 @@
     let wakeLock = null;
     let audioCtx = null;
     let currentStatsDoc = null; 
+    
+    // --- NEW: Real-time User Listener ---
+    let userListenerUnsubscribe = null;
     
     let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
     let allUsersCache = [];
@@ -576,7 +590,8 @@
         } else {
             document.getElementById('authScreen').classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('dashboard').classList.add('hidden');
-            clearInterval(sessionTimerInterval); // Stop timer on logout
+            clearInterval(sessionTimerInterval);
+            if(userListenerUnsubscribe) userListenerUnsubscribe(); // Stop listening on logout
         }
     });
 
@@ -611,12 +626,16 @@
                 updateLocalMealState(d.currentMeal); 
                 updateGlobalLockState(d.scannerLocked || false);
                 
-                // --- NEW: Session Timer Logic ---
                 if (d.sessionStartTime) {
                     sessionStartTimestamp = d.sessionStartTime;
                     if (sessionTimerInterval) clearInterval(sessionTimerInterval);
                     sessionTimerInterval = setInterval(updateSessionTimer, 1000);
                     updateSessionTimer(); // run immediate
+                } else {
+                    // Force clear if null
+                    sessionStartTimestamp = null;
+                    clearInterval(sessionTimerInterval);
+                    document.getElementById('sessionTimerDisplay').classList.add('hidden');
                 }
             } else if(document.getElementById('adminPanel').style.display === 'block') {
                 db.collection('settings').doc('global').set({currentMeal: 'Breakfast', scannerLocked: false}, {merge:true});
@@ -648,18 +667,14 @@
 
         try {
             if (isSignup) {
-                // FIX: Race Condition. Create User -> Then Database -> Then UI loads
                 const cred = await auth.createUserWithEmailAndPassword(email, password);
-                
-                // Write to Firestore immediately before any listeners react
                 await db.collection('users').doc(cred.user.uid).set({
                     email, 
                     role:'pending', 
                     createdAt:new Date(), 
                     disabled:false,
-                    scansPerformed: 0 // Initialize counter
+                    scansPerformed: 0 
                 });
-                
                 toast("Account created!", "success");
             } else {
                 await auth.signInWithEmailAndPassword(email, password);
@@ -686,11 +701,10 @@
     async function initDashboard(uid) {
         document.querySelectorAll('#adminPanel, #volunteerPanel, #adminMealControl, #volunteerMealDisplay').forEach(el => el.style.display = 'none');
         
-        // FIX: Retry logic if the document isn't ready immediately after signup
         let doc = await db.collection('users').doc(uid).get();
         if (!doc.exists) {
-            await new Promise(r => setTimeout(r, 1000)); // Wait 1s
-            doc = await db.collection('users').doc(uid).get(); // Retry
+            await new Promise(r => setTimeout(r, 1000)); 
+            doc = await db.collection('users').doc(uid).get(); 
         }
 
         if(!doc.exists || doc.data().disabled) { auth.signOut(); return toast("Access Revoked / Not Found", "error"); }
@@ -702,7 +716,7 @@
             document.getElementById('adminPanel').style.display = 'block';
             document.getElementById('volunteerPanel').style.display = 'block';
             document.getElementById('adminMealControl').style.display = 'block';
-            loadUsers();
+            initUserListener(); // --- NEW: Start listening for team changes ---
             preloadUserData();
         } else if (role === 'volunteer') {
             document.getElementById('volunteerPanel').style.display = 'block';
@@ -719,6 +733,56 @@
             isCacheLoaded = true;
             console.log("User data loaded:", allUsersCache.length);
         } catch(e) { console.error("Cache load failed", e); }
+    }
+    
+    // --- NEW: Real-time User Listener ---
+    function initUserListener() {
+        if(userListenerUnsubscribe) userListenerUnsubscribe(); // Cleanup old listener
+        
+        const l = document.getElementById('userList');
+        // Listen to changes in the 'users' collection
+        userListenerUnsubscribe = db.collection('users').orderBy('createdAt').onSnapshot(s => {
+            l.innerHTML = ""; 
+            s.forEach(d => { 
+                const u = d.data(); if(u.disabled) return; 
+                const isMe = auth.currentUser.uid === d.id; 
+                const isAdmin = u.role === 'admin';
+                const isPending = u.role === 'pending';
+                
+                const scans = u.scansPerformed || 0;
+                
+                let avatarBg = 'bg-slate-100 text-slate-600';
+                if(isAdmin) avatarBg = 'bg-blue-100 text-blue-600';
+                if(isPending) avatarBg = 'bg-yellow-100 text-yellow-600';
+                
+                let roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200 text-slate-500">${u.role}</span>`;
+                if(isAdmin) roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-500 text-white">Admin</span>`;
+                if(isPending) roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-yellow-400 text-yellow-900 animate-pulse">Pending</span>`;
+
+                let actions = "";
+                if(!isMe) {
+                    if(isPending) {
+                        actions = `<div class="flex gap-1 shrink-0"><button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-green-100"><i class="ph-bold ph-check"></i></button><button onclick="setRole('${d.id}','admin')" class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-blue-100"><i class="ph-bold ph-shield-check"></i></button><button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>`;
+                    } else {
+                        actions = `<div class="flex gap-1 shrink-0"><button onclick="setRole('${d.id}','${isAdmin ? 'volunteer' : 'admin'}')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-200 flex items-center justify-center transition-colors"><i class="ph-bold ${isAdmin ? 'ph-arrow-down' : 'ph-arrow-up'}"></i></button><button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>`;
+                    }
+                } else {
+                    actions = `<div class="flex flex-col items-end shrink-0"><span class="text-[10px] font-bold text-slate-400 uppercase">My Scans</span><span class="text-lg font-bold text-[#2A7B9B] leading-none">${scans}</span></div>`;
+                }
+                
+                let statsDisplay = "";
+                if(!isMe && !isPending) {
+                     statsDisplay = `<div class="flex flex-col items-end shrink-0 mr-2"><span class="text-[9px] font-bold text-slate-400 uppercase">Scans</span><span class="text-sm font-bold text-slate-700 leading-none">${scans}</span></div>`;
+                }
+
+                l.innerHTML += `<div class="glass p-3 rounded-2xl flex items-center gap-3"><div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0 border border-white/50">${u.email.charAt(0).toUpperCase()}</div><div class="flex-1 overflow-hidden"><div class="text-xs font-bold text-slate-800 truncate">${u.email}</div><div class="flex items-center gap-1 mt-0.5">${roleBadge}${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}</div></div>${statsDisplay}${actions}</div>`;
+            }); 
+        });
+    }
+    
+    function loadUsers() {
+        // Just re-init listener
+        initUserListener();
     }
 
     /* =========================================
@@ -863,7 +927,7 @@
             if (e.type === 'DUPLICATE') {
                 showResult(false, {
                     title: "ALREADY SERVED", msg: e.msg,
-                    name: e.person.name || "Unknown", cat: e.person.category || "-", id: id, dept: e.person.department
+                    name: e.person.name || "Unknown", cat: e.person.category || "-", id: id, dept: e.person.department, photo: e.person.photo || null
                 });
             } else {
                 addToRecentScans("Error", "ERROR"); 
@@ -878,7 +942,7 @@
     function finishScan(success, person, id, msg) {
         showResult(success, {
             title: "ACCESS GRANTED", msg: msg,
-            name: person.name, cat: person.category, id: id, dept: person.department
+            name: person.name, cat: person.category, id: id, dept: person.department, photo: person.photo || null
         });
     }
 
@@ -889,26 +953,23 @@
         const safeCat = (person.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_');
         const catKey = `${recordKey}_CAT_${safeCat}`; 
         
-        // 1. Log Meal Record + WHO Scanned it (Audit)
         batch.set(ref, { 
             meals: { 
                 [recordKey]: { 
                     time: new Date().toLocaleTimeString(), 
                     date: todayKey,
-                    scannedBy: auth.currentUser.uid, // Track the scanner
+                    scannedBy: auth.currentUser.uid, 
                     scannerEmail: auth.currentUser.email 
                 } 
             } 
         }, { merge: true });
         
-        // 2. Global Counters
         batch.set(db.collection('stats').doc('counts'), { 
             [recordKey]: firebase.firestore.FieldValue.increment(1), 
             [catKey]: firebase.firestore.FieldValue.increment(1), 
             'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
         }, { merge: true });
         
-        // 3. Increment Volunteer's Personal Counter
         const volRef = db.collection('users').doc(auth.currentUser.uid);
         batch.set(volRef, {
             scansPerformed: firebase.firestore.FieldValue.increment(1)
@@ -930,9 +991,19 @@
         const isVol = (data.cat || "").toLowerCase() === 'volunteer';
         const deptLabel = isVol ? 'Department' : 'University / Org';
 
-        card.className = `bg-white w-80 rounded-[2rem] shadow-2xl transform transition-all duration-300 scale-100 p-0 overflow-hidden border-4 ${success ? 'border-green-500' : 'border-red-500'}`;
+        let imageHtml = "";
+        if (data.photo) {
+            imageHtml = `
+            <div class="profile-img-container">
+                <img src="${data.photo}" class="profile-img" onerror="this.style.display='none'">
+            </div>`;
+        }
+
+        card.className = `bg-white w-80 rounded-[2rem] shadow-2xl transform transition-all duration-300 scale-100 p-0 overflow-hidden border-4 ${success ? 'border-green-500' : 'border-red-500'} relative`;
+        
         card.innerHTML = `
-            <div class="${success ? 'bg-green-50' : 'bg-red-50'} p-6 border-b ${success ? 'border-green-100' : 'border-red-100'} flex items-center gap-4">
+            ${imageHtml}
+            <div class="${success ? 'bg-green-50' : 'bg-red-50'} p-6 border-b ${success ? 'border-green-100' : 'border-red-100'} flex items-center gap-4 pt-8">
                 <div class="w-12 h-12 rounded-full ${success ? 'bg-green-500' : 'bg-red-500'} flex items-center justify-center shrink-0 shadow-md">
                     <i class="ph-fill ${icon} text-2xl text-white"></i>
                 </div>
@@ -944,7 +1015,7 @@
             </div>
             <div class="p-6">
                 <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-1">Participant Name</div>
-                <div class="text-2xl font-bold text-slate-800 leading-tight mb-3 break-words">${data.name || 'Unknown'}</div>
+                <div class="text-2xl font-bold text-slate-800 leading-tight mb-3 break-words pr-20">${data.name || 'Unknown'}</div>
                 <div class="flex flex-wrap gap-2 mb-6">
                     <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-mono font-bold border border-slate-200">${data.id}</span>
                     <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 uppercase">${data.cat || 'N/A'}</span>
@@ -1234,6 +1305,7 @@
                         category: row[1] || "Unspecified", 
                         name: row[2] || "Unknown",
                         department: row[3] || "N/A",
+                        photo: row[4] || null, 
                         importedAt: new Date()
                     };
 
@@ -1294,7 +1366,7 @@
                         { v: user.department, s: styles.cell },
                         { v: p[0], s: styles.cellCenter }, 
                         { v: m[k].time, s: styles.cellCenter },
-                        { v: scannedBy, s: styles.cell } // Added Scanner Info
+                        { v: scannedBy, s: styles.cell } 
                     ]);
                 }
             });
@@ -1349,7 +1421,6 @@
         document.getElementById('recDate').innerText = getDisplayDate();
         document.getElementById('recTotal').innerText = totalCheck;
         
-        // --- NEW: Time Range Logic for PDF ---
         let timeRange = "--";
         if (sessionStartTimestamp) {
             const start = new Date(sessionStartTimestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -1431,25 +1502,44 @@
         document.querySelectorAll('[id$="Menu"]').forEach(el => { if(!el.contains(e.target) && !e.target.closest('button')) el.classList.add('hidden'); });
     }
     
+    // --- UPDATED: Changing meal CLEARS session time ---
     function adminSetGlobalMeal(val, icon, color) { 
         document.getElementById('mealLabel').innerText = val;
         document.getElementById('mealIconDisplay').className = `ph-fill ${icon} text-xl ${color}`;
         
-        // --- NEW: Save start time when meal changes ---
         db.collection('settings').doc('global').set({
             currentMeal: val,
-            sessionStartTime: new Date().toISOString() // Save ISO string
+            sessionStartTime: null, // CLEAR IT
+            scannerLocked: true 
         }, {merge: true})
         .then(() => toast("Session Updated", "success")).catch(() => toast("Failed", "error")); 
         
         closeAllDropdowns({target: document.body}); 
     }
 
+    // --- UPDATED: Unlocking sets session time (only if null) ---
     function toggleGlobalLock() { 
         const newState = !isGlobalLocked; 
-        db.collection('settings').doc('global').set({ scannerLocked: newState }, { merge: true })
-        .then(() => { if(newState) toast("System Paused", "error"); else toast("System Resumed", "success"); })
-        .catch(() => toast("Update Failed", "error")); 
+        const updateData = { scannerLocked: newState };
+
+        if (!newState) { // If Unlocking
+            db.collection('settings').doc('global').get().then(doc => {
+                if (doc.exists) {
+                    const d = doc.data();
+                    if (!d.sessionStartTime) {
+                         updateData.sessionStartTime = new Date().toISOString();
+                    }
+                    return db.collection('settings').doc('global').set(updateData, { merge: true });
+                }
+            })
+            .then(() => toast("System Resumed", "success"))
+            .catch(() => toast("Error", "error"));
+        } else {
+            // If Locking
+            db.collection('settings').doc('global').set(updateData, { merge: true })
+            .then(() => toast("System Paused", "error"))
+            .catch(() => toast("Update Failed", "error")); 
+        }
     }
     
     function updateGlobalLockState(locked) {
@@ -1527,45 +1617,7 @@
     }
 
     function loadUsers() { 
-        const l = document.getElementById('userList'); l.innerHTML = ""; 
-        db.collection('users').orderBy('createdAt').get().then(s => { 
-            s.forEach(d => { 
-                const u = d.data(); if(u.disabled) return; 
-                const isMe = auth.currentUser.uid === d.id; 
-                const isAdmin = u.role === 'admin';
-                const isPending = u.role === 'pending';
-                
-                // --- NEW: Display Scans Performed ---
-                const scans = u.scansPerformed || 0;
-                
-                let avatarBg = 'bg-slate-100 text-slate-600';
-                if(isAdmin) avatarBg = 'bg-blue-100 text-blue-600';
-                if(isPending) avatarBg = 'bg-yellow-100 text-yellow-600';
-                
-                let roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200 text-slate-500">${u.role}</span>`;
-                if(isAdmin) roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-500 text-white">Admin</span>`;
-                if(isPending) roleBadge = `<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-yellow-400 text-yellow-900 animate-pulse">Pending</span>`;
-
-                let actions = "";
-                if(!isMe) {
-                    if(isPending) {
-                        actions = `<div class="flex gap-1 shrink-0"><button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-green-100"><i class="ph-bold ph-check"></i></button><button onclick="setRole('${d.id}','admin')" class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-blue-100"><i class="ph-bold ph-shield-check"></i></button><button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>`;
-                    } else {
-                        actions = `<div class="flex gap-1 shrink-0"><button onclick="setRole('${d.id}','${isAdmin ? 'volunteer' : 'admin'}')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-200 flex items-center justify-center transition-colors"><i class="ph-bold ${isAdmin ? 'ph-arrow-down' : 'ph-arrow-up'}"></i></button><button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>`;
-                    }
-                } else {
-                    actions = `<div class="flex flex-col items-end shrink-0"><span class="text-[10px] font-bold text-slate-400 uppercase">My Scans</span><span class="text-lg font-bold text-[#2A7B9B] leading-none">${scans}</span></div>`;
-                }
-                
-                // Show scans for others too
-                let statsDisplay = "";
-                if(!isMe && !isPending) {
-                     statsDisplay = `<div class="flex flex-col items-end shrink-0 mr-2"><span class="text-[9px] font-bold text-slate-400 uppercase">Scans</span><span class="text-sm font-bold text-slate-700 leading-none">${scans}</span></div>`;
-                }
-
-                l.innerHTML += `<div class="glass p-3 rounded-2xl flex items-center gap-3"><div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0 border border-white/50">${u.email.charAt(0).toUpperCase()}</div><div class="flex-1 overflow-hidden"><div class="text-xs font-bold text-slate-800 truncate">${u.email}</div><div class="flex items-center gap-1 mt-0.5">${roleBadge}${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}</div></div>${statsDisplay}${actions}</div>`;
-            }); 
-        }); 
+        initUserListener();
     }
 
     function setRole(id, r) { if(confirm(`Set role to ${r.toUpperCase()}?`)) db.collection('users').doc(id).update({role:r}).then(loadUsers); }
