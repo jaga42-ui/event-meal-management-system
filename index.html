@@ -135,7 +135,10 @@
                     </div>
                     <div class="text-white drop-shadow-md">
                         <h2 class="font-extrabold text-xl leading-none">MealPass</h2>
-                        <div id="roleBadge" class="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">CONNECTING...</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="roleBadge" class="text-[10px] font-bold opacity-80 uppercase tracking-widest">CONNECTING...</span>
+                            <span id="sessionTimerDisplay" class="hidden text-[10px] font-mono font-bold bg-white/20 px-2 py-0.5 rounded-full border border-white/30 backdrop-blur-md">00:00:00</span>
+                        </div>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -434,9 +437,13 @@
             <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Session</span>
             <span class="font-black uppercase text-lg leading-tight pb-1" id="recMeal">--</span>
         </div>
-        <div class="flex justify-between mb-6 items-center">
+        <div class="flex justify-between mb-2 items-center">
             <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Date</span>
             <span class="font-bold text-slate-700 leading-tight pb-1" id="recDate">--</span>
+        </div>
+        <div class="flex justify-between mb-6 items-center">
+            <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Time</span>
+            <span class="font-bold text-slate-700 leading-tight pb-1 text-xs" id="recTimeRange">--</span>
         </div>
 
         <div class="border-b-2 border-dashed border-slate-200 mb-4"></div>
@@ -471,9 +478,11 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
-    db.enablePersistence().catch(err => console.warn("Persistence Error", err));
+    db.enablePersistence({ synchronizeTabs: true }).catch(err => console.warn("Persistence Error", err));
 
     let currentMeal = "";
+    let sessionStartTimestamp = null; // Store session start
+    let sessionTimerInterval = null;  // For the UI timer
     let isGlobalLocked = false;
     let scanner = null;
     let isScanning = false;
@@ -555,7 +564,7 @@
     }
 
     /* =========================================
-       4. AUTHENTICATION
+       4. AUTHENTICATION & SESSION TIMER
        ========================================= */
     auth.onAuthStateChanged(user => {
         if(user) {
@@ -567,8 +576,33 @@
         } else {
             document.getElementById('authScreen').classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('dashboard').classList.add('hidden');
+            clearInterval(sessionTimerInterval); // Stop timer on logout
         }
     });
+
+    function updateSessionTimer() {
+        if (!sessionStartTimestamp) {
+            document.getElementById('sessionTimerDisplay').classList.add('hidden');
+            return;
+        }
+        
+        document.getElementById('sessionTimerDisplay').classList.remove('hidden');
+        const start = new Date(sessionStartTimestamp).getTime();
+        const now = new Date().getTime();
+        const diff = now - start;
+
+        if (diff < 0) {
+            document.getElementById('sessionTimerDisplay').innerText = "00:00:00";
+            return;
+        }
+
+        const h = Math.floor(diff / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+        const pad = (num) => num.toString().padStart(2, '0');
+        document.getElementById('sessionTimerDisplay').innerText = `${pad(h)}h ${pad(m)}m ${pad(s)}s`;
+    }
 
     function setupListeners() {
         db.collection('settings').doc('global').onSnapshot(doc => {
@@ -576,6 +610,14 @@
                 const d = doc.data();
                 updateLocalMealState(d.currentMeal); 
                 updateGlobalLockState(d.scannerLocked || false);
+                
+                // --- NEW: Session Timer Logic ---
+                if (d.sessionStartTime) {
+                    sessionStartTimestamp = d.sessionStartTime;
+                    if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+                    sessionTimerInterval = setInterval(updateSessionTimer, 1000);
+                    updateSessionTimer(); // run immediate
+                }
             } else if(document.getElementById('adminPanel').style.display === 'block') {
                 db.collection('settings').doc('global').set({currentMeal: 'Breakfast', scannerLocked: false}, {merge:true});
             }
@@ -606,13 +648,26 @@
 
         try {
             if (isSignup) {
+                // FIX: Race Condition. Create User -> Then Database -> Then UI loads
                 const cred = await auth.createUserWithEmailAndPassword(email, password);
-                await db.collection('users').doc(cred.user.uid).set({email, role:'pending', createdAt:new Date(), disabled:false});
+                
+                // Write to Firestore immediately before any listeners react
+                await db.collection('users').doc(cred.user.uid).set({
+                    email, 
+                    role:'pending', 
+                    createdAt:new Date(), 
+                    disabled:false,
+                    scansPerformed: 0 // Initialize counter
+                });
+                
                 toast("Account created!", "success");
             } else {
                 await auth.signInWithEmailAndPassword(email, password);
             }
-        } catch(e) { toast(e.message, "error"); }
+        } catch(e) { 
+            console.error(e);
+            toast(e.message, "error"); 
+        }
     }
 
     function toggleAuth() {
@@ -631,8 +686,14 @@
     async function initDashboard(uid) {
         document.querySelectorAll('#adminPanel, #volunteerPanel, #adminMealControl, #volunteerMealDisplay').forEach(el => el.style.display = 'none');
         
-        const doc = await db.collection('users').doc(uid).get();
-        if(!doc.exists || doc.data().disabled) { auth.signOut(); return toast("Access Revoked", "error"); }
+        // FIX: Retry logic if the document isn't ready immediately after signup
+        let doc = await db.collection('users').doc(uid).get();
+        if (!doc.exists) {
+            await new Promise(r => setTimeout(r, 1000)); // Wait 1s
+            doc = await db.collection('users').doc(uid).get(); // Retry
+        }
+
+        if(!doc.exists || doc.data().disabled) { auth.signOut(); return toast("Access Revoked / Not Found", "error"); }
         
         const role = doc.data().role || 'pending';
         document.getElementById('roleBadge').innerText = role.toUpperCase();
@@ -652,7 +713,6 @@
     }
 
     async function preloadUserData() {
-        // Reload even if loaded to ensure sync
         try {
             const snap = await db.collection('allowed_ids').get();
             allUsersCache = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -662,7 +722,7 @@
     }
 
     /* =========================================
-       6. SCANNER LOGIC (STRICT)
+       6. SCANNER LOGIC (STRICT + STATS)
        ========================================= */
     async function startScanner() {
         if (scanner || isGlobalLocked) return;
@@ -741,7 +801,6 @@
                 } catch (e) { isOfflineMode = true; }
             }
             
-            // STRICT MODE: DENY IF NOT FOUND
             if (!person) {
                 beep(200, 'sawtooth');
                 showResult(false, {
@@ -755,7 +814,6 @@
                 return; 
             }
 
-            // STRICT MODE: BLOCK 'GUEST'
             if (person.category === 'Guest') {
                 beep(200, 'sawtooth');
                 showResult(false, {
@@ -783,7 +841,6 @@
                 }
             }
 
-            // SUCCESSFUL SCAN
             const nowTime = new Date().toLocaleTimeString();
             localSessionCache.set(`${id}_${recordKey}`, nowTime);
             
@@ -829,18 +886,34 @@
         const batch = db.batch();
         const ref = db.collection('meal_records').doc(id);
         
-        // Ensure separation for new scans: "Team Manager" -> "Team_Manager"
         const safeCat = (person.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_');
         const catKey = `${recordKey}_CAT_${safeCat}`; 
-
-        batch.set(ref, { meals: { [recordKey]: { time: new Date().toLocaleTimeString(), date: todayKey } } }, { merge: true });
         
+        // 1. Log Meal Record + WHO Scanned it (Audit)
+        batch.set(ref, { 
+            meals: { 
+                [recordKey]: { 
+                    time: new Date().toLocaleTimeString(), 
+                    date: todayKey,
+                    scannedBy: auth.currentUser.uid, // Track the scanner
+                    scannerEmail: auth.currentUser.email 
+                } 
+            } 
+        }, { merge: true });
+        
+        // 2. Global Counters
         batch.set(db.collection('stats').doc('counts'), { 
             [recordKey]: firebase.firestore.FieldValue.increment(1), 
             [catKey]: firebase.firestore.FieldValue.increment(1), 
             'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
         }, { merge: true });
         
+        // 3. Increment Volunteer's Personal Counter
+        const volRef = db.collection('users').doc(auth.currentUser.uid);
+        batch.set(volRef, {
+            scansPerformed: firebase.firestore.FieldValue.increment(1)
+        }, { merge: true });
+
         return batch.commit();
     }
 
@@ -897,9 +970,6 @@
         if(scanner && !isGlobalLocked) { scanner.resume(); document.getElementById('scannerLaser').classList.remove('hidden'); }
     }
 
-    /* =========================================
-       8. FEATURE 1: RECENT HISTORY
-       ========================================= */
     function addToRecentScans(name, status) {
         const list = document.getElementById('recentScansList');
         const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
@@ -927,9 +997,6 @@
         list.innerHTML = recentScans.join('');
     }
 
-    /* =========================================
-       9. FEATURE 2: ANALYTICS MODAL (CLEANED)
-       ========================================= */
     function renderAnalytics() {
         const container = document.getElementById('analyticsContent');
         const sub = document.getElementById('analyticsSub');
@@ -946,23 +1013,13 @@
         Object.keys(currentStatsDoc).forEach(key => {
             if(key.startsWith(prefix)) {
                 let catName = key.replace(prefix, '');
-                
-                // 1. Block Guests
                 if(catName === 'Guest') return;
-
-                // 2. Normalize Names
-                catName = catName.replace(/_/g, ' '); // "Team_Manager" -> "Team Manager"
-                
-                // 3. Fix Squashed/Bad Names
+                catName = catName.replace(/_/g, ' '); 
                 if(catName === 'DSWTeamManager' || catName === 'TeamManager') catName = 'Team Manager';
                 if(catName === 'Extra') catName = 'Participant & Volunteer List - II';
-                
-                // 4. Fallback for Partial Matches on List II
                 if(catName.includes('Participants') && catName.includes('Volunteers') && catName.includes('II')) {
                       catName = 'Participant & Volunteer List - II';
                 }
-
-                // 5. Merge Counts
                 breakdown[catName] = (breakdown[catName] || 0) + currentStatsDoc[key];
                 totalCheck += currentStatsDoc[key];
             }
@@ -989,7 +1046,7 @@
     }
 
     /* =========================================
-       10. MANUAL SEARCH & ADD USER
+       8. MANUAL SEARCH & ADD USER
        ========================================= */
     function toggleSearch() {
         const modal = document.getElementById('searchModal');
@@ -1102,7 +1159,7 @@
     }
 
     /* =========================================
-       11. SYNC, EXCEL & DATA MANAGEMENT
+       9. SYNC, EXCEL & DATA MANAGEMENT
        ========================================= */
     function addToQueue(data) { 
         offlineQueue.push(data); 
@@ -1147,7 +1204,6 @@
         else { badge.classList.add('hidden'); badge.classList.remove('flex'); }
     }
 
-    // UPDATED EXCEL UPLOAD (Sheet 1 Only) - STRICT
     function uploadExcel(input) {
         if(!input.files[0]) return;
         const r = new FileReader();
@@ -1173,7 +1229,6 @@
                     if (col0.toLowerCase().includes('unique id')) return;
 
                     const id = col0.toUpperCase();
-                    // STRICT: No Guest default
                     const userData = {
                         active: true,
                         category: row[1] || "Unspecified", 
@@ -1209,7 +1264,6 @@
         r.readAsArrayBuffer(input.files[0]);
     }
     
-    // UPDATED STYLED DOWNLOAD
     async function downloadDailyReport() {
         toast("Generating Styled Report...", "info");
         const today = getTodayDate();
@@ -1232,13 +1286,15 @@
                 const p = k.split('_'); 
                 if (p[1] === today) {
                     const user = userMap.get(d.id) || { name: "Unknown", category: "N/A", department: "-" };
+                    const scannedBy = m[k].scannerEmail || "Unknown";
                     dataRows.push([
                         { v: d.id, s: styles.cell },
                         { v: user.name, s: styles.cell },
                         { v: user.category, s: styles.cellCenter },
                         { v: user.department, s: styles.cell },
                         { v: p[0], s: styles.cellCenter }, 
-                        { v: m[k].time, s: styles.cellCenter }
+                        { v: m[k].time, s: styles.cellCenter },
+                        { v: scannedBy, s: styles.cell } // Added Scanner Info
                     ]);
                 }
             });
@@ -1248,25 +1304,22 @@
         dataRows.sort((a, b) => a[5].v.localeCompare(b[5].v));
 
         const wsData = [
-            [{ v: `MealPass Daily Report - ${displayDate}`, s: styles.title }, null, null, null, null, null], [], 
-            [{ v: "Unique ID", s: styles.header }, { v: "Name", s: styles.header }, { v: "Category", s: styles.header }, { v: "Department", s: styles.header }, { v: "Meal", s: styles.header }, { v: "Time Scanned", s: styles.header }],
+            [{ v: `MealPass Daily Report - ${displayDate}`, s: styles.title }, null, null, null, null, null, null], [], 
+            [{ v: "Unique ID", s: styles.header }, { v: "Name", s: styles.header }, { v: "Category", s: styles.header }, { v: "Department", s: styles.header }, { v: "Meal", s: styles.header }, { v: "Time Scanned", s: styles.header }, { v: "Scanned By", s: styles.header }],
             ...dataRows
         ];
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(wsData);
-        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
         ws['!rows'] = [{ hpt: 30 }, { hpt: 10 }, { hpt: 20 }];
-        ws['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 }];
+        ws['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 25 }];
 
         XLSX.utils.book_append_sheet(wb, ws, "Daily Log");
         XLSX.writeFile(wb, `MealPass_Log_${today}.xlsx`);
         toast("Download Complete", "success");
     }
 
-    /* =========================================
-       UPDATED: PDF FIX (Cleaned Up Names & Merged)
-       ========================================= */
     async function downloadReceiptPDF() {
         if (!currentMeal || !currentStatsDoc) return toast("No data available", "error");
         toast("Generating High-Res PDF...", "info");
@@ -1278,17 +1331,13 @@
         Object.keys(currentStatsDoc).forEach(key => {
             if (key.startsWith(prefix)) {
                 let catName = key.replace(prefix, '');
-                
                 if(catName === 'Guest') return;
-
-                // MERGING LOGIC
                 catName = catName.replace(/_/g, ' '); 
                 if(catName === 'DSWTeamManager' || catName === 'TeamManager') catName = 'Team Manager';
                 if(catName === 'Extra') catName = 'Participant & Volunteer List - II';
                 if(catName.includes('Participants') && catName.includes('Volunteers') && catName.includes('II')) {
                       catName = 'Participant & Volunteer List - II';
                 }
-
                 breakdown[catName] = (breakdown[catName] || 0) + currentStatsDoc[key];
                 totalCheck += currentStatsDoc[key];
             }
@@ -1299,6 +1348,15 @@
         document.getElementById('recMeal').innerText = currentMeal;
         document.getElementById('recDate').innerText = getDisplayDate();
         document.getElementById('recTotal').innerText = totalCheck;
+        
+        // --- NEW: Time Range Logic for PDF ---
+        let timeRange = "--";
+        if (sessionStartTimestamp) {
+            const start = new Date(sessionStartTimestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const now = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            timeRange = `${start} to ${now}`;
+        }
+        document.getElementById('recTimeRange').innerText = timeRange;
 
         const listHtml = Object.entries(breakdown)
             .sort((a, b) => b[1] - a[1])
@@ -1376,8 +1434,14 @@
     function adminSetGlobalMeal(val, icon, color) { 
         document.getElementById('mealLabel').innerText = val;
         document.getElementById('mealIconDisplay').className = `ph-fill ${icon} text-xl ${color}`;
-        db.collection('settings').doc('global').set({currentMeal: val}, {merge: true})
+        
+        // --- NEW: Save start time when meal changes ---
+        db.collection('settings').doc('global').set({
+            currentMeal: val,
+            sessionStartTime: new Date().toISOString() // Save ISO string
+        }, {merge: true})
         .then(() => toast("Session Updated", "success")).catch(() => toast("Failed", "error")); 
+        
         closeAllDropdowns({target: document.body}); 
     }
 
@@ -1471,6 +1535,9 @@
                 const isAdmin = u.role === 'admin';
                 const isPending = u.role === 'pending';
                 
+                // --- NEW: Display Scans Performed ---
+                const scans = u.scansPerformed || 0;
+                
                 let avatarBg = 'bg-slate-100 text-slate-600';
                 if(isAdmin) avatarBg = 'bg-blue-100 text-blue-600';
                 if(isPending) avatarBg = 'bg-yellow-100 text-yellow-600';
@@ -1486,9 +1553,17 @@
                     } else {
                         actions = `<div class="flex gap-1 shrink-0"><button onclick="setRole('${d.id}','${isAdmin ? 'volunteer' : 'admin'}')" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-200 flex items-center justify-center transition-colors"><i class="ph-bold ${isAdmin ? 'ph-arrow-down' : 'ph-arrow-up'}"></i></button><button onclick="delUser('${d.id}')" class="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center"><i class="ph-bold ph-trash"></i></button></div>`;
                     }
+                } else {
+                    actions = `<div class="flex flex-col items-end shrink-0"><span class="text-[10px] font-bold text-slate-400 uppercase">My Scans</span><span class="text-lg font-bold text-[#2A7B9B] leading-none">${scans}</span></div>`;
+                }
+                
+                // Show scans for others too
+                let statsDisplay = "";
+                if(!isMe && !isPending) {
+                     statsDisplay = `<div class="flex flex-col items-end shrink-0 mr-2"><span class="text-[9px] font-bold text-slate-400 uppercase">Scans</span><span class="text-sm font-bold text-slate-700 leading-none">${scans}</span></div>`;
                 }
 
-                l.innerHTML += `<div class="glass p-3 rounded-2xl flex items-center gap-3"><div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0 border border-white/50">${u.email.charAt(0).toUpperCase()}</div><div class="flex-1 overflow-hidden"><div class="text-xs font-bold text-slate-800 truncate">${u.email}</div><div class="flex items-center gap-1 mt-0.5">${roleBadge}${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}</div></div>${actions}</div>`;
+                l.innerHTML += `<div class="glass p-3 rounded-2xl flex items-center gap-3"><div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold shadow-sm shrink-0 border border-white/50">${u.email.charAt(0).toUpperCase()}</div><div class="flex-1 overflow-hidden"><div class="text-xs font-bold text-slate-800 truncate">${u.email}</div><div class="flex items-center gap-1 mt-0.5">${roleBadge}${isMe ? '<span class="text-[9px] italic text-slate-400 ml-1">(You)</span>' : ''}</div></div>${statsDisplay}${actions}</div>`;
             }); 
         }); 
     }
