@@ -441,12 +441,11 @@
 
 <script>
     /**
-     * =========================================
-     * MEALPASS PRO - CORE APPLICATION LOGIC
-     * =========================================
+     * MEALPASS PRO - FINAL ROBUST BUILD
+     * Fix: Team Counters now sync correctly in all network conditions
      */
 
-    // --- 1. FIREBASE CONFIGURATION & INITIALIZATION ---
+    // --- 1. CONFIGURATION ---
     const firebaseConfig = {
         apiKey: "AIzaSyDlgdYJ9-3ELhEjLz8EQJQK18ghlWhR-jo",
         authDomain: "orc-meal-tracker.firebaseapp.com",
@@ -457,15 +456,14 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     
-    // Enable Offline Persistence (Handles Multiple Tabs gracefully)
-    db.enablePersistence({ synchronizeTabs: true })
-        .catch(err => console.warn("Persistence fallback:", err.code));
+    // Enable Offline Persistence
+    db.enablePersistence({ synchronizeTabs: true }).catch(err => console.warn("Persistence:", err.code));
 
-    // --- 2. GLOBAL STATE VARIABLES ---
+    // --- 2. GLOBAL STATE ---
     let currentMeal = "";
     let sessionStartTimestamp = null; 
     let sessionTimerInterval = null;  
-    let isGlobalLocked = true; // Default locked for safety
+    let isGlobalLocked = true; 
     let scanner = null;
     let isScanning = false;
     let isProcessing = false;
@@ -475,21 +473,19 @@
     let currentStatsDoc = null; 
     let userListenerUnsubscribe = null;
     
-    // --- 3. OPTIMIZED DATA STRUCTURES ---
-    // Using Maps for O(1) constant time lookups instead of slow Array searches
+    // --- 3. DATA STRUCTURES ---
     let allUsersMap = new Map(); 
     let localSessionCache = new Map(); 
     let recentScans = []; 
     let offlineQueue = JSON.parse(localStorage.getItem('mealQueue') || "[]");
     let isSyncing = false;
 
-    // --- 4. UTILITY FUNCTIONS ---
+    // --- 4. UTILITIES ---
     const getTodayDate = () => new Date().toLocaleDateString('en-CA');
     const getDisplayDate = () => new Date().toLocaleDateString('en-IN');
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     const withTimeout = (promise, ms=3000) => Promise.race([promise, new Promise((_, r) => setTimeout(() => r(new Error("Timeout")), ms))]);
 
-    // Initialize Splash Screen Removal
     setTimeout(() => { 
         document.getElementById('splash').classList.add('opacity-0', 'pointer-events-none'); 
         setTimeout(() => document.getElementById('splash').remove(), 800); 
@@ -516,16 +512,12 @@
         const t = document.getElementById('toast'); 
         const dot = document.getElementById('toastDot'); 
         document.getElementById('toastMsg').innerText = msg; 
-        if(type === 'error') {
-            dot.className = "w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]";
-        } else {
-            dot.className = "w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80]";
-        }
+        dot.className = type==='error' ? "w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]" : "w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80]";
         t.style.transform = "translate(-50%, 0)"; 
         setTimeout(() => t.style.transform = "translate(-50%, -150px)", 2500); 
     }
 
-    // --- 6. OFFLINE SYNC ENGINE ---
+    // --- 6. NETWORK & SYNC ENGINE (FIXED) ---
     window.addEventListener('online', () => { updateConnectionStatus(true); });
     window.addEventListener('offline', () => { updateConnectionStatus(false); });
 
@@ -556,28 +548,24 @@
         isSyncing = true;
         document.getElementById('queueCount').innerText = "Syncing...";
         
-        // Process in chunks of 50 to avoid network timeouts
         const chunk = offlineQueue.slice(0, 50); 
         const batch = db.batch();
         
+        // Loop through scans
         chunk.forEach(item => {
             if(!item.id || !item.meal) return;
             const ref = db.collection('meal_records').doc(item.id);
             const k = `${item.meal}_${item.date}`;
             const catKey = `${k}_CAT_${(item.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_')}`;
             
-            // Write Scan Record
+            // 1. Write Meal Record
             batch.set(ref, { 
                 meals: { 
-                    [k]: { 
-                        time: new Date(item.timestamp).toLocaleTimeString(), 
-                        date: item.date, 
-                        isSynced: true 
-                    } 
+                    [k]: { time: new Date(item.timestamp).toLocaleTimeString(), date: item.date, isSynced: true } 
                 } 
             }, { merge: true });
 
-            // Increment Stats
+            // 2. Increment Global Stats
             batch.set(db.collection('stats').doc('counts'), { 
                 [k]: firebase.firestore.FieldValue.increment(1), 
                 [catKey]: firebase.firestore.FieldValue.increment(1), 
@@ -585,16 +573,20 @@
             }, { merge: true });
         });
 
+        // 3. Increment USER Personal Counter (The Fix)
+        if (auth.currentUser) {
+            batch.set(db.collection('users').doc(auth.currentUser.uid), {
+                scansPerformed: firebase.firestore.FieldValue.increment(chunk.length)
+            }, { merge: true });
+        }
+
         try { 
             await batch.commit(); 
-            // Remove processed items from queue
             offlineQueue.splice(0, chunk.length); 
             localStorage.setItem('mealQueue', JSON.stringify(offlineQueue)); 
             updateOfflineUI(); 
             toast(`Synced ${chunk.length} Records`, "success"); 
             isSyncing = false;
-            
-            // Recursive call if more items remain
             if(offlineQueue.length > 0) setTimeout(processQueue, 500); 
         } catch (e) { 
             console.error("Sync Error", e); 
@@ -605,16 +597,14 @@
     function updateOfflineUI() {
         const badge = document.getElementById('offlineBadge');
         if (offlineQueue.length > 0) { 
-            badge.classList.remove('hidden'); 
-            badge.classList.add('flex'); 
+            badge.classList.remove('hidden'); badge.classList.add('flex'); 
             document.getElementById('queueCount').innerText = offlineQueue.length; 
         } else { 
-            badge.classList.add('hidden'); 
-            badge.classList.remove('flex'); 
+            badge.classList.add('hidden'); badge.classList.remove('flex'); 
         }
     }
 
-    // --- 7. AUTHENTICATION LOGIC ---
+    // --- 7. AUTHENTICATION ---
     auth.onAuthStateChanged(user => {
         if(user) {
             document.getElementById('authScreen').classList.add('opacity-0', 'pointer-events-none');
@@ -638,10 +628,7 @@
         try {
             if (isSignup) {
                 const cred = await auth.createUserWithEmailAndPassword(e, p);
-                // Create user document with 0 scans
-                await db.collection('users').doc(cred.user.uid).set({ 
-                    email:e, role:'pending', createdAt:new Date(), disabled:false, scansPerformed: 0 
-                });
+                await db.collection('users').doc(cred.user.uid).set({ email:e, role:'pending', createdAt:new Date(), disabled:false, scansPerformed: 0 });
                 toast("Account created!", "success");
             } else { 
                 await auth.signInWithEmailAndPassword(e, p); 
@@ -655,37 +642,25 @@
         document.getElementById('authSwitch').innerText = isSignup ? "Back to Login" : "Create New Account"; 
     }
     
-    async function logout() { 
-        await stopScanner(); 
-        await auth.signOut(); 
-    }
+    async function logout() { await stopScanner(); await auth.signOut(); }
 
-    // --- 8. DASHBOARD & DATA LOADING ---
+    // --- 8. DASHBOARD ---
     async function initDashboard(uid) {
         document.querySelectorAll('#adminPanel, #volunteerPanel, #adminMealControl').forEach(el => el.style.display = 'none');
         
         let doc = await db.collection('users').doc(uid).get();
-        // Retry logic if first fetch fails
-        if (!doc.exists) { 
-            await sleep(1000); 
-            doc = await db.collection('users').doc(uid).get(); 
-        }
+        if (!doc.exists) { await sleep(1000); doc = await db.collection('users').doc(uid).get(); }
         
-        if(!doc.exists || doc.data().disabled) { 
-            auth.signOut(); 
-            return toast("Access Denied", "error"); 
-        }
+        if(!doc.exists || doc.data().disabled) { auth.signOut(); return toast("Access Denied", "error"); }
         
         const r = doc.data().role || 'pending';
         document.getElementById('roleBadge').innerText = r.toUpperCase();
         
-        // Show panels based on Role
         if(r === 'admin') {
             document.getElementById('adminPanel').style.display = 'block';
             document.getElementById('volunteerPanel').style.display = 'block';
             document.getElementById('adminMealControl').style.display = 'block';
-            preloadUserData(); 
-            initUserList();
+            preloadUserData(); initUserList();
         } else if (r === 'volunteer') {
             document.getElementById('volunteerPanel').style.display = 'block';
             document.getElementById('volunteerMealDisplay').style.display = 'flex';
@@ -703,25 +678,13 @@
         } catch(e) { console.warn("Cache Error", e); }
     }
 
-    // Helper: Debounce prevents UI flickering
-    const debounce = (fn, delay) => { 
-        let id; 
-        return (...args) => { 
-            clearTimeout(id); 
-            id = setTimeout(() => fn(...args), delay); 
-        }; 
-    };
+    const debounce = (fn, delay) => { let id; return (...args) => { clearTimeout(id); id = setTimeout(() => fn(...args), delay); }; };
 
     function setupListeners() {
-        // Listen to Global Settings
         db.collection('settings').doc('global').onSnapshot(doc => {
             if(doc.exists) { 
                 const d = doc.data();
-                // SESSION ISOLATION: Clear cache if meal changed
-                if(d.currentMeal !== currentMeal) { 
-                    localSessionCache.clear(); 
-                }
-                
+                if(d.currentMeal !== currentMeal) { localSessionCache.clear(); }
                 updateLocalMealState(d.currentMeal); 
                 updateGlobalLockState(d.scannerLocked || false);
                 
@@ -738,7 +701,6 @@
             }
         });
 
-        // Listen to Scan Counters (Debounced)
         const updateUI = debounce((data) => {
             currentStatsDoc = data;
             const k = `${currentMeal}_${getTodayDate()}`;
@@ -748,9 +710,7 @@
             if(!document.getElementById('analyticsModal').classList.contains('hidden')) renderAnalytics();
         }, 300);
 
-        db.collection('stats').doc('counts').onSnapshot(doc => { 
-            if (doc.exists) updateUI(doc.data()); 
-        });
+        db.collection('stats').doc('counts').onSnapshot(doc => { if (doc.exists) updateUI(doc.data()); });
     }
 
     function updateTimer() {
@@ -764,7 +724,7 @@
         document.getElementById('sessionTimerDisplay').innerText = `${h}:${m}:${s}`;
     }
 
-    // --- 9. SCANNER LOGIC (THE CORE) ---
+    // --- 9. SCANNER LOGIC ---
     async function startScanner() {
         if (scanner || isGlobalLocked) return toast("System is Locked", "error");
         initAudio();
@@ -780,20 +740,15 @@
             await scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 250 } }, onScan);
             isScanning = true;
         } catch (e) {
-            console.error(e);
             stopScanner();
-            toast(e.name === 'NotAllowedError' ? "Camera Permission Denied" : "Camera Error", "error");
+            toast("Camera Permission Error", "error");
         }
     }
 
     async function stopScanner() {
         if (!scanner) return;
-        try { 
-            if(isScanning) await scanner.stop(); 
-            scanner.clear(); 
-        } catch(e){}
-        scanner = null; 
-        isScanning = false;
+        try { if(isScanning) await scanner.stop(); scanner.clear(); } catch(e){}
+        scanner = null; isScanning = false;
         if (wakeLock) await wakeLock.release();
         document.getElementById('startOverlay').classList.remove('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.add('hidden');
@@ -806,11 +761,7 @@
         if (isGlobalLocked) return toast("Session Paused", "error");
         if (isProcessing) return; 
 
-        // PAUSE CAMERA & HIDE LASER IMMEDIATELY
-        if(scanner) { 
-            scanner.pause(); 
-            document.getElementById('scannerLaser').classList.add('hidden'); 
-        }
+        if(scanner) { scanner.pause(); document.getElementById('scannerLaser').classList.add('hidden'); }
         isProcessing = true;
 
         const id = text.trim().toUpperCase();
@@ -821,15 +772,12 @@
         let isOffline = !navigator.onLine;
 
         try {
-            // STEP 1: Fast RAM Check for Duplicate
             if (localSessionCache.has(`${id}_${recordKey}`)) {
                 const u = allUsersMap.get(id) || {};
                 throw { type: 'DUPLICATE', person: u, msg: "Just Served" };
             }
 
-            // STEP 2: Fast RAM Check for User
             let person = allUsersMap.get(id);
-            // Fallback to Network Check (only if user not in RAM and we are online)
             if (!person && !isOffline) {
                 try {
                     const doc = await withTimeout(db.collection('allowed_ids').doc(id).get(), 1500);
@@ -838,40 +786,29 @@
             }
 
             if (!person) { 
-                beep(200, 'sawtooth'); 
-                showResult(false, { title:"DENIED", msg:"Not Found", id:id }); 
-                return; 
+                beep(200, 'sawtooth'); showResult(false, { title:"DENIED", msg:"Not Found", id:id }); return; 
             }
             if (person.category === 'Guest') { 
-                beep(200, 'sawtooth'); 
-                showResult(false, { title:"DENIED", msg:"Guest Category", name:person.name, id:id }); 
-                return; 
+                beep(200, 'sawtooth'); showResult(false, { title:"DENIED", msg:"Guest Category", name:person.name, id:id }); return; 
             }
 
-            // STEP 3: Server Duplicate Check (if online)
             if (!isOffline) {
                 try {
                     const snap = await withTimeout(db.collection('meal_records').doc(id).get(), 2000);
                     if (snap.exists && snap.data().meals?.[recordKey]) {
                         throw { type: 'DUPLICATE', person: person, msg: `Served: ${snap.data().meals[recordKey].time}` };
                     }
-                } catch (e) { 
-                    if(e.type === 'DUPLICATE') throw e; 
-                    isOffline = true; 
-                }
+                } catch (e) { if(e.type === 'DUPLICATE') throw e; isOffline = true; }
             }
 
-            // STEP 4: SUCCESS - OPTIMISTIC UPDATE
-            // Immediately assume success to keep UI snappy
+            // SUCCESS - OPTIMISTIC UI
             localSessionCache.set(`${id}_${recordKey}`, true);
             addToRecentScans(person.name, "SUCCESS");
             
             showResult(true, { title:"AUTHORIZED", msg:"Access Granted", name:person.name, cat:person.category, dept:person.department, photo:person.photo, id:id });
 
-            // Background Write
             const writePromise = isOffline ? Promise.reject("Offline") : performCloudWrite(id, person, recordKey, today);
             
-            // If background write fails, add to queue
             writePromise.catch(() => {
                 addToQueue({ id:id, timestamp:Date.now(), meal:currentMeal, date:today, personName:person.name, category:person.category });
             });
@@ -888,10 +825,7 @@
     }
 
     function resumeScanner() {
-        if(scanner && !isGlobalLocked) { 
-            scanner.resume(); 
-            document.getElementById('scannerLaser').classList.remove('hidden'); 
-        }
+        if(scanner && !isGlobalLocked) { scanner.resume(); document.getElementById('scannerLaser').classList.remove('hidden'); }
         isProcessing = false;
     }
 
@@ -899,26 +833,17 @@
         const b = db.batch();
         const catKey = `${key}_CAT_${(person.category || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_')}`;
         
-        // 1. Record Meal
         b.set(db.collection('meal_records').doc(id), { 
-            meals: { 
-                [key]: { 
-                    time: new Date().toLocaleTimeString(), 
-                    date: date, 
-                    scannedBy: auth.currentUser.uid, 
-                    scannerEmail: auth.currentUser.email 
-                } 
-            } 
+            meals: { [key]: { time: new Date().toLocaleTimeString(), date: date, scannedBy: auth.currentUser.uid, scannerEmail: auth.currentUser.email } } 
         }, { merge: true });
         
-        // 2. Global Counters
         b.set(db.collection('stats').doc('counts'), { 
             [key]: firebase.firestore.FieldValue.increment(1), 
             [catKey]: firebase.firestore.FieldValue.increment(1), 
             'total_scans_ever': firebase.firestore.FieldValue.increment(1) 
         }, { merge: true });
         
-        // 3. User Personal Counter
+        // UPDATE PERSONAL COUNTER (FIXED)
         b.set(db.collection('users').doc(auth.currentUser.uid), { 
             scansPerformed: firebase.firestore.FieldValue.increment(1) 
         }, { merge: true });
@@ -926,7 +851,7 @@
         return b.commit();
     }
 
-    // --- 10. UI & HELPERS ---
+    // --- 10. UI HELPERS ---
     function showResult(success, d) {
         const card = document.getElementById('resultCard');
         const modal = document.getElementById('resultModal');
@@ -940,39 +865,22 @@
         card.innerHTML = `
             ${img}
             <div class="bg-${color}-50 p-6 border-b border-${color}-100 flex items-center gap-4 pt-8">
-                <div class="w-12 h-12 rounded-full bg-${color}-500 flex items-center justify-center shrink-0 shadow-md">
-                    <i class="ph-fill ${icon} text-2xl text-white"></i>
-                </div>
-                <div>
-                    <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Status</div>
-                    <div class="text-xl font-extrabold text-${color}-600 leading-none">${d.title}</div>
-                    <div class="text-[10px] font-bold text-${color}-600 mt-1">${d.msg}</div>
-                </div>
+                <div class="w-12 h-12 rounded-full bg-${color}-500 flex items-center justify-center shrink-0 shadow-md"><i class="ph-fill ${icon} text-2xl text-white"></i></div>
+                <div><div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Status</div><div class="text-xl font-extrabold text-${color}-600 leading-none">${d.title}</div><div class="text-[10px] font-bold text-${color}-600 mt-1">${d.msg}</div></div>
             </div>
             <div class="p-6">
                 <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-1">Participant</div>
                 <div class="text-2xl font-bold text-slate-800 leading-tight mb-3 pr-10">${d.name || 'Unknown'}</div>
-                <div class="flex flex-wrap gap-2 mb-6">
-                    <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-mono font-bold border border-slate-200">${d.id}</span>
-                    <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 uppercase">${d.cat || '-'}</span>
-                </div>
-                <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 flex justify-between">
-                    <span class="text-[10px] font-bold uppercase text-slate-400">Department</span>
-                    <span class="text-xs font-bold text-slate-700 text-right max-w-[60%] truncate">${d.dept || '-'}</span>
-                </div>
+                <div class="flex flex-wrap gap-2 mb-6"><span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-mono font-bold border border-slate-200">${d.id}</span><span class="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 uppercase">${d.cat || '-'}</span></div>
+                <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 flex justify-between"><span class="text-[10px] font-bold uppercase text-slate-400">Department</span><span class="text-xs font-bold text-slate-700 text-right max-w-[60%] truncate">${d.dept || '-'}</span></div>
                 <button onclick="closeResult()" class="w-full mt-6 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"><span>Next Scan</span> <i class="ph-bold ph-arrow-right"></i></button>
             </div>
         `;
         modal.classList.remove('opacity-0', 'pointer-events-none');
-        card.classList.remove('result-anim'); 
-        void card.offsetWidth; 
-        card.classList.add('result-anim');
+        card.classList.remove('result-anim'); void card.offsetWidth; card.classList.add('result-anim');
     }
 
-    function closeResult() { 
-        document.getElementById('resultModal').classList.add('opacity-0', 'pointer-events-none'); 
-        resumeScanner(); 
-    }
+    function closeResult() { document.getElementById('resultModal').classList.add('opacity-0', 'pointer-events-none'); resumeScanner(); }
 
     function addToRecentScans(name, status) {
         const list = document.getElementById('recentScansList');
@@ -985,66 +893,33 @@
     }
 
     function toggleSearch() {
-        const m = document.getElementById('searchModal'); 
-        const i = document.getElementById('manualSearchInput');
-        if (m.classList.contains('hidden')) { 
-            m.classList.remove('hidden'); 
-            i.value=''; 
-            document.getElementById('searchResults').innerHTML=''; 
-            setTimeout(()=>i.focus(),100); 
-            if(scanner) { scanner.pause(); document.getElementById('scannerLaser').classList.add('hidden'); } 
-        } else { 
-            m.classList.add('hidden'); 
-            if(scanner && !isGlobalLocked && !isProcessing) { scanner.resume(); document.getElementById('scannerLaser').classList.remove('hidden'); } 
-        }
+        const m = document.getElementById('searchModal'); const i = document.getElementById('manualSearchInput');
+        if (m.classList.contains('hidden')) { m.classList.remove('hidden'); i.value=''; document.getElementById('searchResults').innerHTML=''; setTimeout(()=>i.focus(),100); if(scanner) { scanner.pause(); document.getElementById('scannerLaser').classList.add('hidden'); } }
+        else { m.classList.add('hidden'); if(scanner && !isGlobalLocked && !isProcessing) { scanner.resume(); document.getElementById('scannerLaser').classList.remove('hidden'); } }
     }
 
     function handleSearch(q) {
-        const l = document.getElementById('searchResults'); 
-        q = q.toLowerCase().trim();
+        const l = document.getElementById('searchResults'); q = q.toLowerCase().trim();
         if (q.length < 2) { l.innerHTML=''; return; }
-        
         const res = Array.from(allUsersMap.values()).filter(u => (u.name?.toLowerCase().includes(q) || u.id?.toLowerCase().includes(q))).slice(0, 20);
         l.innerHTML = res.map(u => `<button onclick="toggleSearch();onScan('${u.id}')" class="w-full bg-white/10 hover:bg-white/20 border border-white/5 p-4 rounded-2xl flex items-center justify-between text-left active:scale-95 group"><div><div class="text-white font-bold text-lg">${u.name||'Unknown'}</div><div class="text-xs text-slate-400 font-mono mt-1"><span class="bg-black/30 px-1.5 rounded">${u.id}</span> <span class="text-cyan-200">${u.category}</span></div></div><div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white"><i class="ph-bold ph-caret-right"></i></div></button>`).join('');
     }
 
-    function toggleModal(id) { 
-        document.getElementById(id).classList.toggle('hidden'); 
-        if(id==='addUserModal' && !document.getElementById(id).classList.contains('hidden')) {
-            document.getElementById('newUserId').value='';
-        }
-    }
+    function toggleModal(id) { document.getElementById(id).classList.toggle('hidden'); if(id==='addUserModal' && !document.getElementById(id).classList.contains('hidden')) document.getElementById('newUserId').value=''; }
     
     async function saveManualUser() {
         const id = document.getElementById('newUserId').value.trim().toUpperCase();
         const name = document.getElementById('newUserName').value.trim();
         if(!id || !name) return toast("Fields required", "error");
         if(allUsersMap.has(id)) return toast("ID Exists", "error");
-        
-        const u = { 
-            active:true, 
-            name, 
-            category:document.getElementById('newUserCat').value, 
-            department:document.getElementById('newUserDept').value||"N/A", 
-            importedAt:new Date(), 
-            isManual:true 
-        };
-        
-        try { 
-            await db.collection('allowed_ids').doc(id).set(u); 
-            allUsersMap.set(id, {id,...u}); 
-            document.getElementById('admDatabaseCount').innerText=allUsersMap.size; 
-            toast("Saved", "success"); 
-            toggleModal('addUserModal'); 
-        } catch(e) { toast("Error", "error"); }
+        const u = { active:true, name, category:document.getElementById('newUserCat').value, department:document.getElementById('newUserDept').value||"N/A", importedAt:new Date(), isManual:true };
+        try { await db.collection('allowed_ids').doc(id).set(u); allUsersMap.set(id, {id,...u}); document.getElementById('admDatabaseCount').innerText=allUsersMap.size; toast("Saved", "success"); toggleModal('addUserModal'); }
+        catch(e) { toast("Error", "error"); }
     }
 
-    // --- 11. ADMIN LOGIC ---
+    // --- 11. ADMIN ACTIONS ---
     function updateLocalMealState(m) { 
-        currentMeal=m; 
-        document.getElementById('mealLabel').innerText=m; 
-        document.getElementById('lockedMealLabel').innerText=m; 
-        
+        currentMeal=m; document.getElementById('mealLabel').innerText=m; document.getElementById('lockedMealLabel').innerText=m; 
         const c = m==='Lunch'?'text-red-500':(m==='Dinner'?'text-indigo-500':(m==='Snacks'?'text-amber-500':'text-orange-500'));
         const i = m==='Lunch'?'ph-hamburger':(m==='Dinner'?'ph-moon-stars':(m==='Snacks'?'ph-cookie':'ph-coffee'));
         document.getElementById('mealIconDisplay').className = `ph-fill ${i} text-xl ${c}`;
@@ -1052,58 +927,26 @@
 
     function updateGlobalLockState(l) {
         isGlobalLocked = l;
-        const i = document.getElementById('masterLockIcon'); 
-        const bg = document.getElementById('masterLockBg');
-        
-        if(l) {
-            i.className = "ph-fill text-2xl relative z-10 ph-lock-key text-red-600";
-            bg.className = "absolute inset-0 transition-colors duration-500 bg-red-200";
-            document.getElementById('adminLockOverlay').classList.remove('hidden');
-        } else {
-            i.className = "ph-fill text-2xl relative z-10 ph-lock-key-open text-green-600";
-            bg.className = "absolute inset-0 transition-colors duration-500 bg-green-100/50";
-            document.getElementById('adminLockOverlay').classList.add('hidden');
-        }
+        const i = document.getElementById('masterLockIcon'); const bg = document.getElementById('masterLockBg');
+        if(l) { i.className = "ph-fill text-2xl relative z-10 ph-lock-key text-red-600"; bg.className = "absolute inset-0 transition-colors duration-500 bg-red-200"; document.getElementById('adminLockOverlay').classList.remove('hidden'); }
+        else { i.className = "ph-fill text-2xl relative z-10 ph-lock-key-open text-green-600"; bg.className = "absolute inset-0 transition-colors duration-500 bg-green-100/50"; document.getElementById('adminLockOverlay').classList.add('hidden'); }
     }
 
-    function adminSetGlobalMeal(m, i, c) { 
-        // Reset timer on meal change
-        db.collection('settings').doc('global').set({
-            currentMeal:m, 
-            sessionStartTime:null, 
-            scannerLocked:true
-        }, {merge:true}); 
-    }
-
+    function adminSetGlobalMeal(m, i, c) { db.collection('settings').doc('global').set({currentMeal:m, sessionStartTime:null, scannerLocked:true}, {merge:true}); }
+    
     function toggleGlobalLock() { 
         const n = !isGlobalLocked; 
-        const d = { scannerLocked: n };
-        
-        if(!n) {
-            // If unlocking, set start time if null
-            db.collection('settings').doc('global').get().then(s => { 
-                if(!s.data().sessionStartTime) d.sessionStartTime = new Date().toISOString(); 
-                db.collection('settings').doc('global').set(d, {merge:true}); 
-            });
-        } else {
-            db.collection('settings').doc('global').set(d, {merge:true});
-        }
+        if(!n) db.collection('settings').doc('global').get().then(s => { if(!s.data().sessionStartTime) db.collection('settings').doc('global').set({scannerLocked:n, sessionStartTime:new Date().toISOString()}, {merge:true}); else db.collection('settings').doc('global').set({scannerLocked:n}, {merge:true}); });
+        else db.collection('settings').doc('global').set({scannerLocked:n}, {merge:true});
     }
 
-    // --- 12. EXPORTING LOGIC ---
+    // --- 12. EXPORT & REPORTING ---
     function renderAnalytics() {
         const c = document.getElementById('analyticsContent'); 
         if(!currentMeal || !currentStatsDoc) { c.innerHTML='<div class="text-center text-slate-400 py-4">No Data</div>'; return; }
-        
         const p = `${currentMeal}_${getTodayDate()}_CAT_`;
         const b = {};
-        
-        Object.keys(currentStatsDoc).forEach(k => { 
-            if(k.startsWith(p)) {
-                b[k.replace(p,'').replace(/_/g,' ')] = currentStatsDoc[k]; 
-            }
-        });
-        
+        Object.keys(currentStatsDoc).forEach(k => { if(k.startsWith(p)) b[k.replace(p,'').replace(/_/g,' ')] = currentStatsDoc[k]; });
         document.getElementById('analyticsSub').innerText = `Total: ${currentStatsDoc[`${currentMeal}_${getTodayDate()}`]||0}`;
         c.innerHTML = Object.entries(b).sort((x,y)=>y[1]-x[1]).map(([k,v])=>`<div class="flex justify-between p-3 bg-slate-50 rounded-xl border border-slate-100"><span class="font-bold text-slate-700 text-sm">${k}</span><span class="font-mono font-bold text-[#2A7B9B]">${v}</span></div>`).join('');
     }
@@ -1111,87 +954,39 @@
     async function downloadDailyReport() {
         toast("Exporting...", "info");
         const s = await db.collection('meal_records').get();
-        const d = []; 
-        const today = getTodayDate();
-        
-        s.forEach(doc => {
-            const m = doc.data().meals || {};
-            Object.keys(m).forEach(k => { 
-                if(k.includes(today)) { 
-                    const u = allUsersMap.get(doc.id)||{}; 
-                    d.push([doc.id, u.name, u.category, u.department, k.split('_')[0], m[k].time]); 
-                }
-            });
-        });
-        
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["ID","Name","Cat","Dept","Meal","Time"],...d]), "Log");
+        const d = []; const today = getTodayDate();
+        s.forEach(doc => { const m = doc.data().meals || {}; Object.keys(m).forEach(k => { if(k.includes(today)) { const u = allUsersMap.get(doc.id)||{}; d.push([doc.id, u.name, u.category, u.department, k.split('_')[0], m[k].time]); }}); });
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["ID","Name","Cat","Dept","Meal","Time"],...d]), "Log");
         XLSX.writeFile(wb, `Log_${today}.xlsx`);
     }
 
     async function downloadReceiptPDF() {
         if(!currentMeal || !currentStatsDoc) return toast("No Data", "error");
         toast("Generating...", "info");
-        
         const p = `${currentMeal}_${getTodayDate()}_CAT_`;
-        const b = {}; 
-        let t = 0;
-        
-        Object.keys(currentStatsDoc).forEach(k => { 
-            if(k.startsWith(p)) { 
-                b[k.replace(p,'').replace(/_/g,' ')] = currentStatsDoc[k]; 
-                t+=currentStatsDoc[k]; 
-            }
-        });
-        
-        document.getElementById('recMeal').innerText=currentMeal; 
-        document.getElementById('recDate').innerText=getDisplayDate(); 
-        document.getElementById('recTotal').innerText=t;
+        const b = {}; let t = 0;
+        Object.keys(currentStatsDoc).forEach(k => { if(k.startsWith(p)) { b[k.replace(p,'').replace(/_/g,' ')] = currentStatsDoc[k]; t+=currentStatsDoc[k]; }});
+        document.getElementById('recMeal').innerText=currentMeal; document.getElementById('recDate').innerText=getDisplayDate(); document.getElementById('recTotal').innerText=t;
         document.getElementById('recItems').innerHTML = Object.entries(b).sort((x,y)=>y[1]-x[1]).map(([k,v])=>`<div class="flex justify-between items-end relative z-10"><span class="text-xs font-bold text-slate-600 truncate max-w-[200px] pb-1">${k}</span><div class="flex-1 border-b-2 border-dotted border-slate-300 mx-2 mb-1.5 opacity-50"></div><span class="font-mono font-bold text-slate-900 pb-1">${v}</span></div>`).join('');
-        
-        const e = document.getElementById('receiptTemplate'); 
-        e.classList.remove('opacity-0','-z-50'); 
-        e.classList.add('z-[9999]','opacity-100');
-        
+        const e = document.getElementById('receiptTemplate'); e.classList.remove('opacity-0','-z-50'); e.classList.add('z-[9999]','opacity-100');
         try {
             const c = await html2canvas(e, {scale:3, backgroundColor:'#ffffff'});
             const pdf = new window.jspdf.jsPDF({unit:'mm', format:[80, (c.height*80)/c.width]});
             pdf.addImage(c.toDataURL('image/jpeg',1.0), 'JPEG', 0, 0, 80, (c.height*80)/c.width);
             pdf.save(`Receipt_${currentMeal}.pdf`);
         } catch(err) {}
-        
-        e.classList.add('opacity-0','-z-50'); 
-        e.classList.remove('z-[9999]');
+        e.classList.add('opacity-0','-z-50'); e.classList.remove('z-[9999]');
     }
 
     function uploadExcel(input) {
         if(!input.files[0]) return;
-        const r = new FileReader(); 
-        toast("Reading...", "info");
-        
+        const r = new FileReader(); toast("Reading...", "info");
         r.onload = async e => {
             const wb = XLSX.read(e.target.result, {type:'array'});
             const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
-            const b = db.batch(); 
-            let c=0;
-            
-            rows.forEach(r => { 
-                if(r[0] && !String(r[0]).toLowerCase().includes('unique')) { 
-                    b.set(db.collection('allowed_ids').doc(String(r[0]).toUpperCase()), {
-                        active:true, 
-                        category:r[1]||"Unspecified", 
-                        name:r[2]||"Unknown", 
-                        department:r[3]||"N/A", 
-                        photo:r[4]||null, 
-                        importedAt:new Date()
-                    }); 
-                    c++; 
-                }
-            });
-            
-            await b.commit(); 
-            toast(`Imported ${c} Users`, "success"); 
-            preloadUserData();
+            const b = db.batch(); let c=0;
+            rows.forEach(r => { if(r[0] && !String(r[0]).toLowerCase().includes('unique')) { b.set(db.collection('allowed_ids').doc(String(r[0]).toUpperCase()), {active:true, category:r[1]||"Unspecified", name:r[2]||"Unknown", department:r[3]||"N/A", photo:r[4]||null, importedAt:new Date()}); c++; }});
+            await b.commit(); toast(`Imported ${c} Users`, "success"); preloadUserData();
         };
         r.readAsArrayBuffer(input.files[0]);
     }
@@ -1202,27 +997,22 @@
         XLSX.writeFile(wb, "MasterList.xlsx");
     }
 
-    // --- 13. USER MANAGEMENT (UI FIXED) ---
+    // --- 13. USER MANAGEMENT (FIXED COUNTERS) ---
     function initUserList() {
         if(userListenerUnsubscribe) userListenerUnsubscribe();
-        
         userListenerUnsubscribe = db.collection('users').onSnapshot(s => {
             document.getElementById('userList').innerHTML = s.docs.map(d => {
-                const u = d.data(); 
-                if(u.disabled) return '';
-                
+                const u = d.data(); if(u.disabled) return '';
                 const isMe = auth.currentUser.uid === d.id;
                 const scans = u.scansPerformed || 0;
                 
-                // Colors based on role
                 const roleColor = u.role==='admin'?'bg-blue-500 text-white':(u.role==='pending'?'bg-yellow-400 text-yellow-900':'bg-slate-200 text-slate-500');
                 
-                // Buttons (Hidden for self)
                 const buttons = `
                     <div class="flex gap-1">
-                        <button onclick="setRole('${d.id}','volunteer')" class="px-2 py-1 bg-green-50 text-green-600 rounded text-[9px] font-bold border border-green-100 hover:bg-green-100">VOL</button>
-                        <button onclick="setRole('${d.id}','admin')" class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-[9px] font-bold border border-blue-100 hover:bg-blue-100">ADM</button>
-                        <button onclick="delUser('${d.id}')" class="px-2 py-1 bg-red-50 text-red-600 rounded text-[9px] font-bold border border-red-100 hover:bg-red-100">DEL</button>
+                        <button onclick="setRole('${d.id}','volunteer')" class="px-2 py-1 bg-green-100 text-green-600 rounded text-[9px] font-bold border border-green-200">VOL</button>
+                        <button onclick="setRole('${d.id}','admin')" class="px-2 py-1 bg-blue-100 text-blue-600 rounded text-[9px] font-bold border border-blue-200">ADM</button>
+                        <button onclick="delUser('${d.id}')" class="px-2 py-1 bg-red-100 text-red-600 rounded text-[9px] font-bold border border-red-200">DEL</button>
                     </div>`;
 
                 return `
@@ -1233,7 +1023,7 @@
                             <div class="text-[10px] font-bold text-slate-700 truncate max-w-[120px]">${u.email} ${isMe ? '(You)' : ''}</div>
                             <div class="flex items-center gap-2 mt-0.5">
                                 <span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${roleColor}">${u.role}</span>
-                                <span class="text-[9px] font-bold text-[#2A7B9B] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">${scans} Scans</span>
+                                <span class="text-[9px] font-bold text-[#2A7B9B] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> ${scans} Scans</span>
                             </div>
                         </div>
                     </div>
@@ -1243,39 +1033,19 @@
         });
     }
 
-    function setRole(id,r) { 
-        if(confirm("Change Role?")) db.collection('users').doc(id).update({role:r}); 
-    }
+    function setRole(id,r) { if(confirm("Change Role?")) db.collection('users').doc(id).update({role:r}); }
+    function delUser(id) { if(confirm("Remove Access?")) db.collection('users').doc(id).update({disabled:true}); }
     
-    function delUser(id) { 
-        if(confirm("Remove Access?")) db.collection('users').doc(id).update({disabled:true}); 
-    }
-    
-    // --- 14. DANGER ZONE ---
+    // --- 14. DATA RESET ---
     async function clearDatabase(m) {
         if(!confirm("⚠️ IRREVERSIBLE ACTION. Continue?")) return;
         toast("Wiping Data...", "error");
         try {
-            const del = async (p) => { 
-                const s=await db.collection(p).get(); 
-                const b=db.batch(); 
-                s.forEach(d=>b.delete(d.ref)); 
-                await b.commit(); 
-            };
-            
-            if(m==='scans'||m==='all') { 
-                await del('meal_records'); 
-                await db.collection('stats').doc('counts').set({}); 
-            }
-            if(m==='users'||m==='all') {
-                await del('allowed_ids');
-            }
-            if(m==='all') {
-                await del('users');
-            }
-            
-            toast("Done. Reloading...", "success"); 
-            setTimeout(()=>window.location.reload(),1000);
+            const del = async (p) => { const s=await db.collection(p).get(); const b=db.batch(); s.forEach(d=>b.delete(d.ref)); await b.commit(); };
+            if(m==='scans'||m==='all') { await del('meal_records'); await db.collection('stats').doc('counts').set({}); }
+            if(m==='users'||m==='all') await del('allowed_ids');
+            if(m==='all') await del('users');
+            toast("Done. Reloading...", "success"); setTimeout(()=>window.location.reload(),1000);
         } catch(e) { toast("Failed", "error"); }
     }
     
@@ -1286,18 +1056,8 @@
         } 
     }
 
-    // --- 15. UI HANDLERS ---
-    function toggleDropdown(e,id) { 
-        e.stopPropagation(); 
-        document.querySelectorAll('[id$="Menu"]').forEach(el => {if(el.id!==id) el.classList.add('hidden')}); 
-        document.getElementById(id).classList.toggle('hidden'); 
-    }
-    
-    function closeAllDropdowns(e) { 
-        document.querySelectorAll('[id$="Menu"]').forEach(el => { 
-            if(!el.contains(e.target) && !e.target.closest('button')) el.classList.add('hidden'); 
-        }); 
-    }
+    function toggleDropdown(e,id) { e.stopPropagation(); document.querySelectorAll('[id$="Menu"]').forEach(el => {if(el.id!==id) el.classList.add('hidden')}); document.getElementById(id).classList.toggle('hidden'); }
+    function closeAllDropdowns(e) { document.querySelectorAll('[id$="Menu"]').forEach(el => { if(!el.contains(e.target) && !e.target.closest('button')) el.classList.add('hidden'); }); }
 </script>
 </body>
 </html>
