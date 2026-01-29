@@ -208,7 +208,7 @@
                     <div id="reader" class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div id="scannerLaser" class="scan-laser hidden"></div>
                     
-                    <div id="adminLockOverlay" class="absolute inset-0 bg-red-900/90 backdrop-blur-md z-[60] flex flex-col items-center justify-center hidden">
+                    <div id="adminLockOverlay" class="absolute inset-0 bg-red-900/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center hidden">
                         <div class="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_30px_#ef4444] animate-pulse mb-4"><i class="ph-fill ph-lock-key text-4xl text-white"></i></div>
                         <h2 class="text-2xl font-bold text-white uppercase tracking-widest">Paused</h2>
                     </div>
@@ -438,7 +438,7 @@
         </div>
     </div>
 
-    <div id="receiptTemplate" class="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none bg-white w-[350px] p-8 text-slate-800 font-mono text-sm border-0 antialiased transform-gpu">
+    <div id="receiptTemplate" class="fixed top-0 left-[-9999px] bg-white w-[350px] p-8 text-slate-800 font-mono text-sm border-0 antialiased transform-gpu z-[9999]">
         <div class="text-center mb-6 border-b-2 border-dashed border-slate-300 pb-5">
             <div class="font-black text-3xl uppercase tracking-tighter text-slate-900 leading-tight pb-1">MEALPASS</div>
             <div class="text-[10px] text-slate-500 uppercase tracking-[0.2em] mt-2 font-bold">Event Edition 2026</div>
@@ -456,12 +456,12 @@
             <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Time</span>
             <span class="font-bold text-slate-700 leading-tight pb-1 text-xs" id="recTimeRange">--</span>
         </div>
-
+    
         <div class="border-b-2 border-dashed border-slate-200 mb-4"></div>
         
         <div id="recItems" class="space-y-3 mb-6">
             </div>
-
+    
         <div class="border-t-2 border-dashed border-slate-900 pt-4 flex justify-between items-center mt-4">
             <span class="text-xl font-black tracking-tight leading-normal">TOTAL</span>
             <span class="text-2xl font-black tracking-tight leading-normal pb-1" id="recTotal">0</span>
@@ -490,17 +490,22 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     
-    // Attempt robust persistence
+    // Persistence
     db.enablePersistence({ synchronizeTabs: true }).catch(err => {
         console.warn("Persistence Error:", err.code);
     });
 
+    // --- GLOBAL VARIABLES ---
     let currentMeal = "";
     let sessionStartTimestamp = null; 
     let sessionTimerInterval = null;  
     let isGlobalLocked = true;
+    
+    // UPDATED SCANNER STATE
     let scanner = null;
+    let scannerState = "IDLE"; // IDLE, STARTING, SCANNING, STOPPING
     let isScanning = false;
+    
     let isProcessing = false;
     let isSignup = false;
     let wakeLock = null;
@@ -523,7 +528,7 @@
     setTimeout(() => { document.getElementById('splash').classList.add('splash-exit'); setTimeout(() => document.getElementById('splash').remove(), 800); }, 2000);
 
     /* =========================================
-       2. NETWORK & SYNC
+       2. NETWORK & SYNC (FIXED INFINITE LOOP)
        ========================================= */
     window.addEventListener('online', updateConnectionStatus);
     window.addEventListener('offline', updateConnectionStatus);
@@ -578,7 +583,7 @@
             }, { merge: true });
         });
 
-        // 3. Increment Personal User Counter (FIXED)
+        // 3. Increment Personal User Counter
         batch.set(db.collection('users').doc(auth.currentUser.uid), {
             scansPerformed: firebase.firestore.FieldValue.increment(chunk.length)
         }, { merge: true });
@@ -589,8 +594,12 @@
             localStorage.setItem('mealQueue', JSON.stringify(offlineQueue)); 
             updateOfflineUI(); 
             toast(`Synced ${chunk.length} Records`, "success"); 
+            
+            // FIXED: Prevent Infinite Loop
             isSyncing = false;
-            if(offlineQueue.length > 0) setTimeout(processQueue, 1000); 
+            if(offlineQueue.length > 0 && navigator.onLine) {
+                 setTimeout(processQueue, 5000); // 5s delay before next batch
+            }
         } catch (e) { 
             console.error("Sync Failed", e); 
             isSyncing = false; 
@@ -604,7 +613,7 @@
     }
 
     /* =========================================
-       3. UTILITIES
+       3. UTILITIES & TIMER
        ========================================= */
     function initAudio() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -629,6 +638,39 @@
         dot.className = type==='error'?"w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]":"w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80]"; 
         t.style.transform = "translate(-50%, 0)"; 
         setTimeout(() => t.style.transform = "translate(-50%, -150px)", 2500); 
+    }
+
+    // FIXED SESSION TIMER
+    function updateSessionTimer() {
+        const timerDisplay = document.getElementById('sessionTimerDisplay');
+        
+        if (!sessionStartTimestamp) { 
+            timerDisplay.classList.add('hidden'); 
+            return; 
+        }
+        
+        const start = new Date(sessionStartTimestamp).getTime();
+        
+        // Safety check
+        if (isNaN(start)) {
+            timerDisplay.classList.add('hidden');
+            return;
+        }
+
+        timerDisplay.classList.remove('hidden');
+        const now = new Date().getTime();
+        const diff = now - start;
+        
+        if (diff < 0) { 
+            timerDisplay.innerText = "00:00:00"; 
+            return; 
+        }
+        
+        const h = Math.floor(diff / 3600000).toString().padStart(2,'0');
+        const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2,'0');
+        const s = Math.floor((diff % 60000) / 1000).toString().padStart(2,'0');
+        
+        timerDisplay.innerText = `${h}:${m}:${s}`;
     }
 
     /* =========================================
@@ -666,19 +708,6 @@
     function toggleAuth() { isSignup = !isSignup; document.getElementById('authBtn').innerText = isSignup ? "Create Account" : "Authenticate"; document.getElementById('authSwitch').innerText = isSignup ? "Back to Login" : "Create New Account"; }
     async function logout() { await stopScanner(); await auth.signOut(); }
 
-    function updateSessionTimer() {
-        if (!sessionStartTimestamp) { document.getElementById('sessionTimerDisplay').classList.add('hidden'); return; }
-        document.getElementById('sessionTimerDisplay').classList.remove('hidden');
-        const start = new Date(sessionStartTimestamp).getTime();
-        const now = new Date().getTime();
-        const diff = now - start;
-        if (diff < 0) { document.getElementById('sessionTimerDisplay').innerText = "00:00:00"; return; }
-        const h = Math.floor(diff / 3600000).toString().padStart(2,'0');
-        const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2,'0');
-        const s = Math.floor((diff % 60000) / 1000).toString().padStart(2,'0');
-        document.getElementById('sessionTimerDisplay').innerText = `${h}h ${m}m ${s}s`;
-    }
-
     /* =========================================
        5. DASHBOARD & DATA
        ========================================= */
@@ -714,7 +743,6 @@
         } catch(e) { console.error("Cache load failed", e); }
     }
 
-    // Debounce
     function debounce(func, wait) {
         let timeout;
         return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), wait); };
@@ -768,7 +796,6 @@
                 
                 const roleColor = u.role==='admin'?'bg-blue-500 text-white':(u.role==='pending'?'bg-yellow-400 text-yellow-900':'bg-slate-200 text-slate-500');
                 
-                // FIXED: Buttons
                 const buttons = `
                     <div class="flex gap-1 shrink-0">
                         <button onclick="setRole('${d.id}','volunteer')" class="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-500 hover:text-white flex items-center justify-center transition-colors shadow-sm border border-green-100"><i class="ph-bold ph-check"></i></button>
@@ -791,38 +818,64 @@
     }
 
     /* =========================================
-       6. SCANNER LOGIC
+       6. ROBUST SCANNER LOGIC (FIXED CAMERA CRASH)
        ========================================= */
     async function startScanner() {
-        if (scanner || isGlobalLocked) return;
+        // PREVENT DOUBLE START
+        if (scannerState !== "IDLE" || isGlobalLocked) return;
+        
+        scannerState = "STARTING";
         initAudio();
-        try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+        
+        // UI Updates
         document.getElementById('startOverlay').classList.add('opacity-0', 'pointer-events-none');
         document.getElementById('stopBtn').classList.remove('hidden');
         document.getElementById('recentScansContainer').classList.remove('hidden'); 
         document.getElementById('scannerLaser').classList.remove('hidden');
 
         try {
-            scanner = new Html5Qrcode("reader");
-            await scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 250 } }, onScan);
+            if(!scanner) scanner = new Html5Qrcode("reader");
+            await scanner.start(
+                { facingMode: "environment" }, 
+                { fps: 15, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 }, 
+                onScan
+            );
+            scannerState = "SCANNING";
             isScanning = true;
+            try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
         } catch (err) {
-            console.error(err);
-            toast("Camera Error", "error");
-            stopScanner();
+            console.error("Camera Start Fail:", err);
+            toast("Camera Error - Refresh Page", "error");
+            scannerState = "IDLE"; 
+            stopScanner(); // Force cleanup
         }
     }
 
     async function stopScanner() {
-        if (!scanner) return;
-        try { if(isScanning) { await scanner.stop(); scanner.clear(); } } catch (e) { }
-        scanner = null; isScanning = false;
-        if (wakeLock) await wakeLock.release();
-        document.getElementById('startOverlay').classList.remove('opacity-0', 'pointer-events-none');
-        document.getElementById('stopBtn').classList.add('hidden');
-        document.getElementById('recentScansContainer').classList.add('hidden'); 
-        document.getElementById('scannerLaser').classList.add('hidden');
-        document.getElementById('reader').innerHTML = "";
+        if (scannerState === "IDLE" || scannerState === "STOPPING") return;
+        
+        scannerState = "STOPPING";
+        
+        try {
+            if (scanner && isScanning) {
+                await scanner.stop();
+                scanner.clear();
+            }
+        } catch (e) {
+            console.warn("Stop Warning:", e);
+        } finally {
+            scanner = null;
+            isScanning = false;
+            scannerState = "IDLE";
+            if (wakeLock) await wakeLock.release();
+            
+            // UI Cleanup
+            document.getElementById('startOverlay').classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('stopBtn').classList.add('hidden');
+            document.getElementById('recentScansContainer').classList.add('hidden'); 
+            document.getElementById('scannerLaser').classList.add('hidden');
+            document.getElementById('reader').innerHTML = "";
+        }
     }
 
     async function onScan(text) {
@@ -929,7 +982,7 @@
     }
 
     /* =========================================
-       7. UI & EXPORTS
+       7. UI & EXPORTS (FIXED PDF & EXCEL)
        ========================================= */
     function showResult(success, data) {
         const modal = document.getElementById('resultModal');
@@ -1013,6 +1066,7 @@
     }
     function manualSelect(id) { toggleSearch(); onScan(id); }
     function toggleModal(id) { document.getElementById(id).classList.toggle('hidden'); }
+    
     async function saveManualUser() {
         const id=document.getElementById('newUserId').value.trim().toUpperCase(); const name=document.getElementById('newUserName').value.trim();
         if(!id||!name) return toast("Missing fields","error"); if(allUsersMap.has(id)) return toast("Exists","error");
@@ -1026,10 +1080,25 @@
             const wb = XLSX.read(e.target.result, {type:'array'});
             const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
             const b = db.batch(); let c=0;
-            rows.forEach(r => { if(r[0]) { b.set(db.collection('allowed_ids').doc(String(r[0]).toUpperCase()), { active: true, category: r[1] || "Unspecified", name: r[2] || "Unknown", department: r[3] || "N/A", photo: r[4] || null, importedAt: new Date() }); c++; }});
+            rows.forEach(r => { 
+                if(r[0]) { 
+                    // FIXED: Force String ID
+                    const idStr = String(r[0]).trim().toUpperCase();
+                    b.set(db.collection('allowed_ids').doc(idStr), { 
+                        active: true, 
+                        category: r[1] || "Unspecified", 
+                        name: r[2] || "Unknown", 
+                        department: r[3] || "N/A", 
+                        photo: r[4] || null, 
+                        importedAt: new Date() 
+                    }); 
+                    c++; 
+                }
+            });
             await b.commit(); toast(`Imported ${c}`, "success"); preloadUserData();
         }; r.readAsArrayBuffer(input.files[0]);
     }
+    
     async function downloadDailyReport() {
         toast("Generating...", "info");
         const s = await db.collection('meal_records').get(); const d = []; const today = getTodayDate();
@@ -1037,17 +1106,27 @@
         const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["ID","Name","Cat","Meal","Time"],...d]), "Log"); XLSX.writeFile(wb, "Log.xlsx");
     }
     
-    // PDF RECEIPT (FIXED TIME)
+    // UPDATED PDF GENERATOR (FIXED)
     async function downloadReceiptPDF() {
         if(!currentMeal || !currentStatsDoc) return toast("No Data", "error");
-        toast("Generating...", "info");
+        toast("Generating PDF...", "info");
+
+        // 1. Prepare Data
         const p = `${currentMeal}_${getTodayDate()}_CAT_`;
-        const b = {}; let t = 0;
-        Object.keys(currentStatsDoc).forEach(k => { if(k.startsWith(p)) { b[k.replace(p,'').replace(/_/g,' ')] = currentStatsDoc[k]; t+=currentStatsDoc[k]; }});
+        const b = {}; 
+        let t = 0;
         
-        document.getElementById('recMeal').innerText=currentMeal; 
-        document.getElementById('recDate').innerText=getDisplayDate(); 
-        document.getElementById('recTotal').innerText=t;
+        Object.keys(currentStatsDoc).forEach(k => { 
+            if(k.startsWith(p)) { 
+                b[k.replace(p,'').replace(/_/g,' ')] = currentStatsDoc[k]; 
+                t += currentStatsDoc[k]; 
+            }
+        });
+
+        // 2. Fill Template
+        document.getElementById('recMeal').innerText = currentMeal; 
+        document.getElementById('recDate').innerText = getDisplayDate(); 
+        document.getElementById('recTotal').innerText = t;
         
         let timeLabel = "--";
         if (sessionStartTimestamp) {
@@ -1057,22 +1136,69 @@
         }
         document.getElementById('recTimeRange').innerText = timeLabel;
 
-        document.getElementById('recItems').innerHTML = Object.entries(b).sort((x,y)=>y[1]-x[1]).map(([k,v])=>`<div class="flex justify-between items-end relative z-10"><span class="text-xs font-bold text-slate-600 truncate max-w-[200px] pb-1">${k}</span><div class="flex-1 border-b-2 border-dotted border-slate-300 mx-2 mb-1.5 opacity-50"></div><span class="font-mono font-bold text-slate-900 pb-1">${v}</span></div>`).join('');
+        document.getElementById('recItems').innerHTML = Object.entries(b)
+            .sort((x,y)=>y[1]-x[1])
+            .map(([k,v])=>`
+                <div class="flex justify-between items-end relative z-10">
+                    <span class="text-xs font-bold text-slate-600 truncate max-w-[200px] pb-1">${k}</span>
+                    <div class="flex-1 border-b-2 border-dotted border-slate-300 mx-2 mb-1.5 opacity-50"></div>
+                    <span class="font-mono font-bold text-slate-900 pb-1">${v}</span>
+                </div>`
+            ).join('');
         
-        const e = document.getElementById('receiptTemplate'); e.classList.remove('opacity-0','-z-50'); e.classList.add('z-[9999]','opacity-100');
+        // 3. Render
+        const el = document.getElementById('receiptTemplate');
+        el.style.left = "0px"; 
+        
         try {
-            const c = await html2canvas(e, {scale:3, backgroundColor:'#ffffff'});
+            await new Promise(r => setTimeout(r, 100)); // Render buffer
+            const c = await html2canvas(el, {scale: 2, useCORS:true, backgroundColor:'#ffffff'});
+            
             const pdf = new window.jspdf.jsPDF({unit:'mm', format:[80, (c.height*80)/c.width]});
-            pdf.addImage(c.toDataURL('image/jpeg',1.0), 'JPEG', 0, 0, 80, (c.height*80)/c.width);
-            pdf.save(`Receipt_${currentMeal}.pdf`);
-        } catch(err) {}
-        e.classList.add('opacity-0','-z-50'); e.classList.remove('z-[9999]');
+            pdf.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 80, (c.height*80)/c.width);
+            pdf.save(`Receipt_${currentMeal}_${getTodayDate()}.pdf`);
+            toast("Downloaded", "success");
+        } catch(err) {
+            console.error("PDF Error", err);
+            toast("PDF Generation Failed", "error");
+        } finally {
+            el.style.left = "-9999px";
+        }
     }
 
     async function exportMasterList() { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Array.from(allUsersMap.values())), "Users"); XLSX.writeFile(wb, "Master.xlsx"); }
+    
     function adminSetGlobalMeal(val, icon, color) { db.collection('settings').doc('global').set({currentMeal: val, sessionStartTime: null, scannerLocked: true}, {merge:true}); }
-    function toggleGlobalLock() { const n = !isGlobalLocked; if(!n) db.collection('settings').doc('global').get().then(doc => db.collection('settings').doc('global').set({scannerLocked: n, sessionStartTime: doc.data().sessionStartTime || new Date().toISOString()}, {merge:true})); else db.collection('settings').doc('global').set({scannerLocked: n}, {merge:true}); }
-    function updateGlobalLockState(l) { isGlobalLocked=l; document.getElementById('adminLockOverlay').classList[l?'remove':'add']('hidden'); }
+    
+    // UPDATED LOCK LOGIC
+    function toggleGlobalLock() { 
+        const isLockedNewState = !isGlobalLocked; 
+        const updateData = { scannerLocked: isLockedNewState };
+        if(!isLockedNewState) updateData.sessionStartTime = new Date().toISOString();
+        db.collection('settings').doc('global').set(updateData, {merge:true}); 
+        updateGlobalLockState(isLockedNewState);
+    }
+
+    function updateGlobalLockState(locked) { 
+        isGlobalLocked = locked; 
+        const overlay = document.getElementById('adminLockOverlay');
+        const icon = document.getElementById('masterLockIcon');
+        const bg = document.getElementById('masterLockBg');
+        
+        if (locked) {
+            overlay.classList.remove('hidden'); 
+            overlay.style.zIndex = "100"; // FORCE ON TOP
+            icon.className = "ph-fill ph-lock-key text-red-600 text-2xl relative z-10 transition-all duration-300";
+            bg.className = "absolute inset-0 bg-red-100 transition-colors duration-500";
+            if(scanner) scanner.pause();
+        } else {
+            overlay.classList.add('hidden'); 
+            icon.className = "ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10 transition-all duration-300";
+            bg.className = "absolute inset-0 bg-green-100 transition-colors duration-500";
+            if(scanner) scanner.resume();
+        }
+    }
+
     function updateLocalMealState(m) { currentMeal = m; document.getElementById('mealLabel').innerText = m; document.getElementById('lockedMealLabel').innerText = m; }
     function toggleDropdown(e,id) { e.stopPropagation(); document.querySelectorAll('[id$="Menu"]').forEach(el => { if(el.id !== id) el.classList.add('hidden'); }); document.getElementById(id).classList.toggle('hidden'); }
     function closeAllDropdowns(e) { document.querySelectorAll('[id$="Menu"]').forEach(el => { if(!el.contains(e.target) && !e.target.closest('button')) el.classList.add('hidden'); }); }
