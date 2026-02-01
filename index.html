@@ -274,31 +274,37 @@
                         <button onclick="toggleDropdown(event, 'downloadMenu')" class="w-full h-full glass p-3 rounded-3xl flex flex-col items-center justify-center gap-2 hover:bg-white transition-all group aspect-square relative cursor-pointer hover:scale-105 active:scale-95">
                             <i class="ph-fill ph-download-simple text-blue-600 text-2xl group-hover:scale-110 transition-transform"></i>
                         </button>
-                        <div id="downloadMenu" class="hidden absolute top-full left-0 mt-2 w-48 glass rounded-[2rem] p-2 shadow-2xl origin-top z-50 flex-col gap-1 border-2 border-blue-100">
-    <div class="px-4 py-2 text-[10px] font-bold text-blue-400 uppercase tracking-widest text-center">Export</div>
-    
-    <button onclick="downloadFullExcelReport()" class="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-3 text-left group shadow-md mb-1">
-        <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center"><i class="ph-fill ph-file-xls text-white"></i></div>
-        <div><span class="font-bold text-white text-xs block">Whole Report</span></div>
-    </button>
-    
-    <div class="border-b border-slate-100 my-1"></div>
+                        <div id="downloadMenu" class="hidden absolute top-full left-0 mt-2 w-56 glass rounded-[2rem] p-2 shadow-2xl origin-top z-50 flex-col gap-1 border-2 border-blue-100">
+                             <div class="px-4 py-2 text-[10px] font-bold text-blue-400 uppercase tracking-widest text-center">Export</div>
+                             
+                             <button onclick="downloadRangePDF()" class="w-full p-3 bg-slate-800 hover:bg-slate-900 rounded-2xl flex items-center gap-3 text-left group shadow-md mb-2">
+                                <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center"><i class="ph-fill ph-calendar-blank text-white"></i></div>
+                                <div>
+                                    <span class="font-bold text-white text-xs block">Report (27-31 Jan)</span>
+                                    <span class="text-[9px] text-slate-400 font-bold block">Numbers Only</span>
+                                </div>
+                             </button>
 
-    <button onclick="downloadDailyReport()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
-        <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-file-text text-blue-500"></i></div>
-        <div><span class="font-bold text-slate-700 text-xs block">Scan Logs</span></div>
-    </button>
+                             <div class="border-b border-slate-100 mb-2"></div>
+                             
+                             <button onclick="downloadFullExcelReport()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
+                                 <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-file-xls text-blue-600"></i></div>
+                                 <div><span class="font-bold text-slate-700 text-xs block">Whole Report (Excel)</span></div>
+                             </button>
 
-    <button onclick="downloadReceiptPDF()" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-3 text-left group">
-        <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center"><i class="ph-fill ph-file-pdf text-red-600"></i></div>
-        <div><span class="font-bold text-slate-700 text-xs block">Receipt PDF</span></div>
-    </button>
+                             <button onclick="downloadDailyReport()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
+                                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-file-text text-blue-500"></i></div>
+                                <div><span class="font-bold text-slate-700 text-xs block">Scan Logs (Excel)</span></div>
+                             </button>
 
-    <button onclick="exportMasterList()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
-        <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-users text-blue-500"></i></div>
-        <div><span class="font-bold text-slate-700 text-xs block">Master List</span></div>
-    </button>
-</div>
+                             <button onclick="downloadReceiptPDF()" class="w-full p-3 hover:bg-red-50 rounded-2xl flex items-center gap-3 text-left group">
+                                <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                                    <i class="ph-fill ph-file-pdf text-red-600"></i>
+                                </div>
+                                <div>
+                                    <span class="font-bold text-slate-700 text-xs block">Daily Receipt (PDF)</span>
+                                </div>
+                             </button>
 
                              <button onclick="exportMasterList()" class="w-full p-3 hover:bg-blue-50 rounded-2xl flex items-center gap-3 text-left group">
                                 <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i class="ph-fill ph-users text-blue-500"></i></div>
@@ -468,7 +474,7 @@
         <div class="border-b-2 border-dashed border-slate-200 mb-4"></div>
         
         <div id="recItems" class="space-y-3 mb-6">
-            </div>
+        </div>
     
         <div class="border-t-2 border-dashed border-slate-900 pt-4 flex justify-between items-center mt-4">
             <span class="text-xl font-black tracking-tight leading-normal">TOTAL</span>
@@ -484,73 +490,52 @@
         </div>
     </div>
 
+    <div id="rangeReportTemplate" class="fixed top-0 left-[-9999px] bg-white w-[794px] min-h-[1123px] p-12 text-slate-800 font-sans z-[9999]">
+        <div class="flex justify-between items-end border-b-4 border-slate-800 pb-6 mb-8">
+            <div>
+                <h1 class="text-4xl font-black text-slate-900 uppercase tracking-tight">Meal Statistics</h1>
+                <p class="text-slate-500 font-bold uppercase tracking-widest mt-2 text-sm">UTSAH 2026 • Event Summary</p>
+            </div>
+            <div class="text-right">
+                <div class="text-xs font-bold text-slate-400 uppercase">Report Range</div>
+                <div class="text-xl font-bold text-slate-800">Jan 27 - Jan 31</div>
+            </div>
+        </div>
+
+        <div class="border rounded-t-xl overflow-hidden border-slate-200">
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs text-white uppercase bg-slate-800 font-bold">
+                    <tr>
+                        <th scope="col" class="px-6 py-4">Date</th>
+                        <th scope="col" class="px-6 py-4 text-center bg-slate-700">Breakfast</th>
+                        <th scope="col" class="px-6 py-4 text-center bg-slate-700">Lunch</th>
+                        <th scope="col" class="px-6 py-4 text-center bg-slate-700">Snacks</th>
+                        <th scope="col" class="px-6 py-4 text-center bg-slate-700">Dinner</th>
+                        <th scope="col" class="px-6 py-4 text-right bg-blue-600">Daily Total</th>
+                    </tr>
+                </thead>
+                <tbody id="rangeReportBody" class="divide-y divide-slate-200">
+                    </tbody>
+                <tfoot class="bg-slate-50 font-bold text-slate-900">
+                    <tr>
+                        <td class="px-6 py-4 uppercase tracking-wider">Grand Total</td>
+                        <td id="totalB" class="px-6 py-4 text-center">0</td>
+                        <td id="totalL" class="px-6 py-4 text-center">0</td>
+                        <td id="totalS" class="px-6 py-4 text-center">0</td>
+                        <td id="totalD" class="px-6 py-4 text-center">0</td>
+                        <td id="grandTotal" class="px-6 py-4 text-right text-lg text-blue-600">0</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="mt-12 flex items-center gap-3 text-slate-400 text-xs font-mono border-t border-dashed border-slate-300 pt-6">
+            <i class="ph-bold ph-check-circle text-green-500"></i>
+            <span>System Generated Report • MealPass Admin Console</span>
+        </div>
+    </div>
+
 <script>
-    async function downloadFullExcelReport() {
-    toast("Generating Full Report...", "info");
-    try {
-        // 1. Fetch Meal Records
-        const scanSnap = await db.collection('meal_records').get();
-        const scanData = [];
-        
-        // 2. Prepare headers with styling
-        const headerStyle = {
-            font: { bold: true, color: { rgb: "FFFFFF" } },
-            fill: { fgColor: { rgb: "2A7B9B" } },
-            alignment: { horizontal: "center" }
-        };
-
-        // 3. Process Scan Logs Sheet
-        scanSnap.forEach(doc => {
-            const meals = doc.data().meals || {};
-            const userInfo = allUsersMap.get(doc.id) || { name: "Unknown", category: "N/A", department: "N/A" };
-            
-            Object.keys(meals).forEach(mealKey => {
-                const parts = mealKey.split('_'); // Format: Breakfast_2026-02-01
-                scanData.push({
-                    "Date": parts[1] || "N/A",
-                    "Meal": parts[0] || "N/A",
-                    "ID": doc.id,
-                    "Name": userInfo.name,
-                    "Category": userInfo.category,
-                    "Dept": userInfo.department,
-                    "Time": meals[mealKey].time || "N/A"
-                });
-            });
-        });
-
-        // 4. Process Master List Sheet
-        const masterData = Array.from(allUsersMap.values()).map(u => ({
-            "ID": u.id,
-            "Full Name": u.name,
-            "Category": u.category,
-            "Department": u.department,
-            "Reg Date": u.importedAt ? new Date(u.importedAt.seconds * 1000).toLocaleDateString() : "N/A"
-        }));
-
-        // 5. Create Workbook
-        const wb = XLSX.utils.book_new();
-
-        // Add Scan Logs Sheet
-        const wsScans = XLSX.utils.json_to_sheet(scanData);
-        // Set column widths for readability
-        wsScans['!cols'] = [{wch:12}, {wch:12}, {wch:15}, {wch:25}, {wch:15}, {wch:20}, {wch:12}];
-        XLSX.utils.book_append_sheet(wb, wsScans, "Attendance_Logs");
-
-        // Add Master List Sheet
-        const wsMaster = XLSX.utils.json_to_sheet(masterData);
-        wsMaster['!cols'] = [{wch:15}, {wch:25}, {wch:15}, {wch:20}, {wch:15}];
-        XLSX.utils.book_append_sheet(wb, wsMaster, "Master_Database");
-
-        // 6. Save File
-        const fileName = `MealPass_Full_Report_${getTodayDate()}.xlsx`;
-        XLSX.writeFile(wb, fileName);
-        
-        toast("Report Downloaded!", "success");
-    } catch (error) {
-        console.error("Export Error:", error);
-        toast("Export Failed", "error");
-    }
-}
     /* =========================================
        1. FIREBASE & GLOBALS
        ========================================= */
@@ -722,7 +707,6 @@
         setTimeout(() => t.style.transform = "translate(-50%, -150px)", 2500); 
     }
 
-    // FIXED SESSION TIMER
     function updateSessionTimer() {
         const timerDisplay = document.getElementById('sessionTimerDisplay');
         
@@ -899,7 +883,7 @@
     }
 
     /* =========================================
-       6. ROBUST SCANNER LOGIC (FALLBACK SAFE)
+       6. ROBUST SCANNER LOGIC
        ========================================= */
     async function startScanner() {
         if (scannerState !== "IDLE" || isGlobalLocked) return;
@@ -1054,10 +1038,92 @@
     async function saveManualUser() { const id=document.getElementById('newUserId').value.trim().toUpperCase(), name=document.getElementById('newUserName').value.trim(); if(!id||!name) return toast("Missing fields","error"); if(allUsersMap.has(id)) return toast("Exists","error"); await db.collection('allowed_ids').doc(id).set({active:true,name,category:document.getElementById('newUserCat').value, department:document.getElementById('newUserDept').value, importedAt:new Date()}); allUsersMap.set(id,{id,name}); toast("Saved","success"); toggleModal('addUserModal'); }
     function uploadExcel(input) { if(!input.files[0]) return; const r = new FileReader(); toast("Reading...", "info"); r.onload = async e => { const wb = XLSX.read(e.target.result, {type:'array'}), rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1}), b = db.batch(); let c=0; rows.forEach(r => { if(r[0]) { b.set(db.collection('allowed_ids').doc(String(r[0]).trim().toUpperCase()), { active: true, category: r[1] || "Unspecified", name: r[2] || "Unknown", department: r[3] || "N/A", photo: r[4] || null, importedAt: new Date() }); c++; } }); await b.commit(); toast(`Imported ${c}`, "success"); preloadUserData(); }; r.readAsArrayBuffer(input.files[0]); }
     
+    // --- EXPORTS ---
+
+    // 1. FULL REPORT EXCEL (Merged)
+    async function downloadFullExcelReport() {
+        toast("Generating Full Report...", "info");
+        try {
+            const scanSnap = await db.collection('meal_records').get();
+            const scanData = [];
+            scanSnap.forEach(doc => {
+                const meals = doc.data().meals || {};
+                const userInfo = allUsersMap.get(doc.id) || { name: "Unknown", category: "N/A", department: "N/A" };
+                Object.keys(meals).forEach(mealKey => {
+                    const parts = mealKey.split('_'); 
+                    scanData.push({ "Date": parts[1] || "N/A", "Meal": parts[0] || "N/A", "ID": doc.id, "Name": userInfo.name, "Category": userInfo.category, "Dept": userInfo.department, "Time": meals[mealKey].time || "N/A" });
+                });
+            });
+            const masterData = Array.from(allUsersMap.values()).map(u => ({ "ID": u.id, "Full Name": u.name, "Category": u.category, "Department": u.department, "Reg Date": u.importedAt ? new Date(u.importedAt.seconds * 1000).toLocaleDateString() : "N/A" }));
+            const wb = XLSX.utils.book_new();
+            const wsScans = XLSX.utils.json_to_sheet(scanData);
+            wsScans['!cols'] = [{wch:12}, {wch:12}, {wch:15}, {wch:25}, {wch:15}, {wch:20}, {wch:12}];
+            XLSX.utils.book_append_sheet(wb, wsScans, "Attendance_Logs");
+            const wsMaster = XLSX.utils.json_to_sheet(masterData);
+            wsMaster['!cols'] = [{wch:15}, {wch:25}, {wch:15}, {wch:20}, {wch:15}];
+            XLSX.utils.book_append_sheet(wb, wsMaster, "Master_Database");
+            XLSX.writeFile(wb, `MealPass_Full_Report_${getTodayDate()}.xlsx`);
+            toast("Report Downloaded!", "success");
+        } catch (error) { console.error("Export Error:", error); toast("Export Failed", "error"); }
+    }
+
+    // 2. RANGE PDF REPORT (Jan 27-31)
+    async function downloadRangePDF() {
+        toast("Calculating Stats...", "info");
+        try {
+            const doc = await db.collection('stats').doc('counts').get();
+            if (!doc.exists) return toast("No stats found", "error");
+            const data = doc.data();
+            const dates = ['2026-01-27', '2026-01-28', '2026-01-29', '2026-01-30', '2026-01-31'];
+            const meals = ['Breakfast', 'Lunch', 'Snacks', 'Dinner'];
+            let totals = { Breakfast: 0, Lunch: 0, Snacks: 0, Dinner: 0, All: 0 };
+            let htmlRows = '';
+            dates.forEach(date => {
+                let dailyTotal = 0;
+                const dateObj = new Date(date);
+                const displayDate = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                let rowHtml = `<tr class="bg-white hover:bg-slate-50 transition-colors"><td class="px-6 py-4 font-bold text-slate-700">${displayDate}</td>`;
+                meals.forEach(meal => {
+                    const key = `${meal}_${date}`;
+                    const count = data[key] || 0;
+                    totals[meal] += count; dailyTotal += count;
+                    const style = count === 0 ? 'text-slate-300' : 'text-slate-800 font-bold';
+                    rowHtml += `<td class="px-6 py-4 text-center ${style}">${count}</td>`;
+                });
+                totals.All += dailyTotal;
+                rowHtml += `<td class="px-6 py-4 text-right font-black text-slate-900 bg-slate-50">${dailyTotal}</td></tr>`;
+                htmlRows += rowHtml;
+            });
+            document.getElementById('rangeReportBody').innerHTML = htmlRows;
+            document.getElementById('totalB').innerText = totals.Breakfast;
+            document.getElementById('totalL').innerText = totals.Lunch;
+            document.getElementById('totalS').innerText = totals.Snacks;
+            document.getElementById('totalD').innerText = totals.Dinner;
+            document.getElementById('grandTotal').innerText = totals.All;
+            const element = document.getElementById('rangeReportTemplate');
+            element.style.left = "0px";
+            const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+            element.style.left = "-9999px"; 
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            const pdf = new window.jspdf.jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`Meal_Report_Jan27-31.pdf`);
+            toast("PDF Downloaded", "success");
+        } catch (e) { console.error(e); toast("Generation Failed", "error"); document.getElementById('rangeReportTemplate').style.left = "-9999px"; }
+    }
+
+    // 3. DAILY REPORT (Log Only)
     async function downloadDailyReport() { toast("Generating...", "info"); const s = await db.collection('meal_records').get(), d = [], t = getTodayDate(); s.forEach(doc => { const m = doc.data().meals || {}; Object.keys(m).forEach(k => { if (k.split('_')[1] === t) { const u = allUsersMap.get(doc.id) || {}; d.push([doc.id, u.name, u.category, k.split('_')[0], m[k].time]); }}); }); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["ID","Name","Cat","Meal","Time"],...d]), "Log"); XLSX.writeFile(wb, "Log.xlsx"); }
+    
+    // 4. RECEIPT PDF
     async function downloadReceiptPDF() { if(!currentMeal || !currentStatsDoc) return toast("No Data", "error"); toast("Generating PDF...", "info"); const p = `${currentMeal}_${getTodayDate()}_CAT_`, b = {}; let t = 0; Object.keys(currentStatsDoc).forEach(k => { if(k.startsWith(p)) { b[k.replace(p,'').replace(/_/g,' ')] = currentStatsDoc[k]; t += currentStatsDoc[k]; }}); document.getElementById('recMeal').innerText = currentMeal; document.getElementById('recDate').innerText = getDisplayDate(); document.getElementById('recTotal').innerText = t; let timeLabel = "--"; if (sessionStartTimestamp) { const start = new Date(sessionStartTimestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), now = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); timeLabel = `${start} - ${now}`; } document.getElementById('recTimeRange').innerText = timeLabel; document.getElementById('recItems').innerHTML = Object.entries(b).sort((x,y)=>y[1]-x[1]).map(([k,v])=>`<div class="flex justify-between items-end relative z-10"><span class="text-xs font-bold text-slate-600 truncate max-w-[200px] pb-1">${k}</span><div class="flex-1 border-b-2 border-dotted border-slate-300 mx-2 mb-1.5 opacity-50"></div><span class="font-mono font-bold text-slate-900 pb-1">${v}</span></div>`).join(''); const el = document.getElementById('receiptTemplate'); el.style.left = "0px"; try { await new Promise(r => setTimeout(r, 100)); const c = await html2canvas(el, {scale: 2, useCORS:true, backgroundColor:'#ffffff'}); const pdf = new window.jspdf.jsPDF({unit:'mm', format:[80, (c.height*80)/c.width]}); pdf.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 80, (c.height*80)/c.width); pdf.save(`Receipt_${currentMeal}_${getTodayDate()}.pdf`); toast("Downloaded", "success"); } catch(err) { console.error(err); toast("PDF Fail", "error"); } finally { el.style.left = "-9999px"; } }
+    
+    // 5. MASTER LIST
     async function exportMasterList() { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Array.from(allUsersMap.values())), "Users"); XLSX.writeFile(wb, "Master.xlsx"); }
     
+    // --- ADMIN SETTINGS ---
     function adminSetGlobalMeal(val, icon, color) { db.collection('settings').doc('global').set({currentMeal: val, sessionStartTime: null, scannerLocked: true}, {merge:true}); }
     function toggleGlobalLock() { const n = !isGlobalLocked; const d = { scannerLocked: n }; if(!n) d.sessionStartTime = new Date().toISOString(); db.collection('settings').doc('global').set(d, {merge:true}); updateGlobalLockState(n); }
     function updateGlobalLockState(locked) { isGlobalLocked = locked; const o=document.getElementById('adminLockOverlay'), i=document.getElementById('masterLockIcon'), b=document.getElementById('masterLockBg'); if (locked) { o.classList.remove('hidden'); o.style.zIndex = "100"; i.className = "ph-fill ph-lock-key text-red-600 text-2xl relative z-10"; b.className = "absolute inset-0 bg-red-100"; if(scanner) scanner.pause(); } else { o.classList.add('hidden'); i.className = "ph-fill ph-lock-key-open text-green-600 text-2xl relative z-10"; b.className = "absolute inset-0 bg-green-100"; if(scanner) scanner.resume(); } }
